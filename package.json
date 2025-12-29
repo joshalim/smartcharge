@@ -3,6 +3,7 @@
   "name": "smart-charge-ocpp-cms",
   "version": "1.0.0",
   "description": "OCPP 1.6J Central System and Admin Dashboard with InfluxDB Persistence",
+  "type": "module",
   "main": "server.js",
   "scripts": {
     "dev": "vite",
@@ -25,9 +26,11 @@
   "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.17",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
+    "terser": "^5.29.1",
     "typescript": "^5.3.3",
     "vite": "^5.1.4"
   }

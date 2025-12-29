@@ -1,10 +1,16 @@
 
-const express = require('express');
-const path = require('path');
-const http = require('http');
-const WebSocket = require('ws');
-const { InfluxDB, Point } = require('@influxdata/influxdb-client');
-require('dotenv').config();
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import http from 'http';
+import { WebSocketServer } from 'ws';
+import { InfluxDB, Point } from '@influxdata/influxdb-client';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -106,16 +112,14 @@ app.get('*', (req, res) => {
 /**
  * OCPP 1.6J WebSocket Server
  */
-const wss = new WebSocket.Server({ port: ocppPort }, () => {
+const wss = new WebSocketServer({ port: ocppPort }, () => {
   console.log(`🔌 OCPP Server listening on port ${ocppPort}`);
 });
 
 wss.on('connection', (ws, req) => {
-  // Extract Charger ID from URL: /ocpp/CP_001
   const chargerId = req.url.split('/').pop() || 'Unknown';
   console.log(`[OCPP][CONN] Charger attached: ${chargerId}`);
 
-  // Update TSDB status
   const bootPoint = new Point('chargers')
     .tag('id', chargerId)
     .stringField('status', 'Available')
@@ -127,7 +131,6 @@ wss.on('connection', (ws, req) => {
       const msg = JSON.parse(data.toString());
       const [type, id, action, payload] = msg;
 
-      // Log all messages to TSDB
       const logPoint = new Point('logs')
         .tag('chargerId', chargerId)
         .tag('direction', 'IN')
@@ -135,7 +138,6 @@ wss.on('connection', (ws, req) => {
         .stringField('payload', JSON.stringify(payload || msg[2]));
       writeApi.writePoint(logPoint);
 
-      // Simple OCPP 1.6 Response Logic
       if (action === 'BootNotification') {
         ws.send(JSON.stringify([3, id, {
           status: 'Accepted',
