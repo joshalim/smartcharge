@@ -1,37 +1,40 @@
-# SMART Charge - Production Deployment Guide (InfluxDB v2)
+# SMART Charge - Local Server Installation
 
-This guide provides the exact commands needed to host the OCPP Central System and Dashboard on a standard Ubuntu Linux server using InfluxDB v2 OSS.
+This guide details how to install and configure the SMART Charge OCPP Central System on a fresh Ubuntu Linux server.
 
-## 🏗️ 1. Initial Server Setup
-Upload the `setup.sh` script to your server and run:
+## 🛠️ Phase 1: Dependency Installation
+Run the automated setup script to install Node.js, InfluxDB, Grafana, and Nginx.
 ```bash
 chmod +x setup.sh
 sudo ./setup.sh
 ```
 
-## 🗄️ 2. Database Initialization (v2 Standard)
-Once InfluxDB is installed, run the setup wizard to generate your token:
+## 🗄️ Phase 2: InfluxDB v2 Configuration
+You must initialize the database to get your security token:
 ```bash
 influx setup \
   --org smartcharge \
   --bucket smartcharge_bucket \
   --username admin \
   --password YOUR_SECURE_PASSWORD \
-  --token YOUR_PERMANENT_TOKEN \
+  --token YOUR_ADMIN_TOKEN \
   --force
 ```
-*Note: Save your token; you will need it for the `.env` file.*
+*Save the token securely. You will need it for the `.env` file.*
 
-## 🌐 3. Nginx Reverse Proxy (Critical for OCPP)
-Create a new site configuration:
+## 🌐 Phase 3: Nginx Proxy Configuration
+Nginx acts as the entry point. It routes browser traffic to the dashboard and charger traffic to the OCPP server.
+
+Create the config:
 `sudo nano /etc/nginx/sites-available/smartcharge`
 
-Paste the following configuration:
+Paste this configuration:
 ```nginx
 server {
     listen 80;
-    server_name your-domain.com;
+    server_name your-domain-or-ip.com;
 
+    # Frontend Dashboard & API
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
@@ -41,6 +44,8 @@ server {
         proxy_cache_bypass $http_upgrade;
     }
 
+    # OCPP 1.6J WebSocket (Chargers)
+    # Target URL for chargers: ws://your-ip/ocpp/CHARGER_ID
     location /ocpp {
         proxy_pass http://localhost:9000;
         proxy_http_version 1.1;
@@ -52,43 +57,46 @@ server {
     }
 }
 ```
-Enable the site:
+Enable and restart:
 ```bash
 sudo ln -s /etc/nginx/sites-available/smartcharge /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl restart nginx
 ```
 
-## ⚙️ 4. Environment Configuration
-Create a `.env` file in the root of the project:
+## ⚙️ Phase 4: App Deployment
+1. Clone your repository to `/var/www/smartcharge`.
+2. Create `.env`:
 ```env
 PORT=3000
 OCPP_PORT=9000
 INFLUX_URL=http://localhost:8086
-INFLUX_TOKEN=PASTE_YOUR_GENERATED_V2_TOKEN
+INFLUX_TOKEN=PASTE_YOUR_INFLUX_TOKEN
 INFLUX_ORG=smartcharge
 INFLUX_BUCKET=smartcharge_bucket
 API_KEY=YOUR_GEMINI_API_KEY
 ```
-
-## 🚀 5. Launch Application
+3. Install and build:
 ```bash
 npm install
 npm run build
+```
+4. Start with PM2:
+```bash
 pm2 start server.js --name "smart-charge"
 pm2 save
 pm2 startup
 ```
 
-## 📊 6. Grafana Data Source
-1. Login to Grafana at `http://YOUR_IP:3000` (Default: admin/admin).
-2. Go to **Connections > Data Sources > Add data source**.
-3. Select **InfluxDB**.
-4. Query Language: **Flux**.
-5. URL: `http://localhost:8086`.
+## 📊 Phase 5: Grafana Setup
+1. Open `http://YOUR_SERVER_IP:3000` (Default login: `admin`/`admin`).
+2. Add Data Source -> **InfluxDB**.
+3. Query Language: **Flux**.
+4. URL: `http://localhost:8086`.
+5. Basic Auth: Off.
 6. Organization: `smartcharge`.
-7. Token: `YOUR_V2_TOKEN`.
+7. Token: `YOUR_INFLUX_TOKEN`.
 8. Default Bucket: `smartcharge_bucket`.
 
 ---
-**Troubleshooting:** If the backend cannot connect, ensure InfluxDB is running with `sudo systemctl status influxdb`.
+**Security Note:** For production, always run `sudo certbot --nginx` to enable HTTPS and WSS (WebSocket Secure).
