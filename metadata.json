@@ -1,0 +1,7 @@
+{
+  "name": "Copy of SMART Charge",
+  "description": "A high-performance OCPP Central System Management System dashboard for EV charging networks, featuring real-time monitoring, transaction management, and AI-powered diagnostics.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
