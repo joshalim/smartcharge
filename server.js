@@ -11,7 +11,7 @@ const port = process.env.PORT || 3000;
 const ocppPort = process.env.OCPP_PORT || 9000;
 
 /**
- * INFLUXDB CONFIGURATION
+ * INFLUXDB v2 CONFIGURATION
  */
 const url = process.env.INFLUX_URL || 'http://localhost:8086';
 const token = process.env.INFLUX_TOKEN;
@@ -26,6 +26,8 @@ if (!token) {
 const influxDB = new InfluxDB({ url, token });
 const writeApi = influxDB.getWriteApi(org, bucket);
 const queryApi = influxDB.getQueryApi(org);
+
+console.log(`✅ InfluxDB 2.x Engine Connected [Bucket: ${bucket}]`);
 
 async function getLatestState(measurement, tagKey = 'id') {
   const fluxQuery = `
@@ -128,7 +130,6 @@ const wss = new WebSocket.Server({ port: ocppPort }, () => {
 });
 
 wss.on('connection', async (ws, req) => {
-  // Handle connections both direct (ws://ip:9000/ID) and proxied (ws://ip/ocpp/ID)
   const rawPath = req.url;
   const chargerId = rawPath.replace('/ocpp/', '').replace('/', '') || 'Unknown-Station';
   

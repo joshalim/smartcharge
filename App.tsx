@@ -89,7 +89,6 @@ const App: React.FC = () => {
           message: `Remote ${action} sent to ${chargerId}`
         }, ...prev].slice(0, 15));
         
-        // Optimistic refresh
         fetchData();
       } else {
         setLiveEvents(prev => [{
@@ -136,7 +135,6 @@ const App: React.FC = () => {
       case 'settings':
         return (
           <div className="space-y-8 max-w-6xl pb-20">
-            {/* Payment Integration Config */}
             <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                <div className="flex items-center gap-3 mb-8">
                   <div className="p-3 bg-green-100 text-green-600 rounded-2xl">
@@ -174,7 +172,6 @@ const App: React.FC = () => {
                </div>
             </div>
 
-            {/* Grafana Config Section */}
             <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                <div className="flex items-center gap-3 mb-8">
                   <div className="p-3 bg-orange-100 text-orange-600 rounded-2xl">
@@ -224,7 +221,6 @@ const App: React.FC = () => {
                </div>
             </div>
 
-            {/* Deployment Steps */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               <div className="lg:col-span-8 space-y-6">
                 <div className="bg-slate-900 rounded-3xl p-8 border border-slate-800 shadow-xl group">
@@ -233,34 +229,34 @@ const App: React.FC = () => {
                       <div className="p-2 bg-indigo-500/20 rounded-xl">
                         <Terminal size={24} className="text-indigo-400" />
                       </div>
-                      <h4 className="text-xl font-bold text-white uppercase tracking-tight">Ubuntu Deployment Checklist</h4>
+                      <h4 className="text-xl font-bold text-white uppercase tracking-tight">Ubuntu Deployment Checklist (v2)</h4>
                     </div>
                     <div className="px-3 py-1 bg-indigo-500/10 text-indigo-400 rounded-lg text-xs font-black uppercase tracking-widest">
-                      Stable 24.04
+                      InfluxDB OSS v2
                     </div>
                   </div>
                   
                   <div className="space-y-6">
                     {[
                       {
-                        title: "1. Basic Environment Setup",
-                        cmd: "wget -O setup.sh https://raw.githubusercontent.com/.../setup.sh && chmod +x setup.sh && ./setup.sh",
-                        desc: "Installs Node.js 20, InfluxDB 3.0 CLI, Grafana, and PM2 automatically."
+                        title: "1. Environment Setup",
+                        cmd: "wget -O setup.sh https://your-server/setup.sh && chmod +x setup.sh && ./setup.sh",
+                        desc: "Installs Node.js 20, InfluxDB v2, Grafana, and Nginx automatically."
                       },
                       {
-                        title: "2. Initialize Database",
-                        cmd: "influx setup --org smartcharge --bucket smartcharge_bucket",
-                        desc: "Configures the initial TSDB organization. Requires a secure password."
+                        title: "2. Initialize InfluxDB v2",
+                        cmd: "influx setup --org smartcharge --bucket smartcharge_bucket --username admin --token YOUR_SECRET_TOKEN",
+                        desc: "Configures the initial TSDB v2 organization. You must save the token for the .env file."
                       },
                       {
-                        title: "3. Allow Dashboard Embedding",
-                        cmd: "sudo sed -i 's/;allow_embedding = false/allow_embedding = true/' /etc/grafana/grafana.ini && sudo systemctl restart grafana-server",
-                        desc: "Critical: Allows the Grafana panels to render inside this management portal."
+                        title: "3. Firewall & Proxy",
+                        cmd: "sudo ufw allow 9000/tcp && sudo systemctl restart nginx",
+                        desc: "Ensures the OCPP WebSocket port is accessible through the reverse proxy."
                       },
                       {
                         title: "4. Deploy CMS Service",
                         cmd: "npm install && npm run build && pm2 start server.js --name 'smart-charge'",
-                        desc: "Builds production assets and starts the OCPP Central System service."
+                        desc: "Compiles React assets and starts the high-availability central system service."
                       }
                     ].map((step, idx) => (
                       <div key={idx} className="bg-slate-800/50 rounded-2xl border border-slate-700/50 overflow-hidden">
@@ -292,7 +288,7 @@ const App: React.FC = () => {
                         <Rocket size={20} /> Production Ready
                       </h4>
                       <p className="text-xs text-indigo-100 leading-relaxed mb-6 opacity-80">
-                        Once deployed, chargers can connect via WebSocket to your server IP. Ensure Port 9000 is open in your firewall.
+                        Once deployed, chargers can connect via WebSocket. Ensure InfluxDB v2 is running on port 8086.
                       </p>
                       <div className="space-y-3">
                          <div className="flex items-center gap-3 text-xs">
@@ -301,7 +297,7 @@ const App: React.FC = () => {
                          </div>
                          <div className="flex items-center gap-3 text-xs">
                             <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
-                            <span>TSDB Persistence (InfluxDB)</span>
+                            <span>TSDB Persistence (InfluxDB v2)</span>
                          </div>
                       </div>
                     </div>
@@ -315,8 +311,8 @@ const App: React.FC = () => {
                     </h4>
                     <div className="space-y-4">
                        <div className="flex justify-between items-center text-xs">
-                          <span className="text-slate-500">InfluxDB Bucket</span>
-                          <span className="font-mono bg-slate-100 px-1.5 rounded">smartcharge_bucket</span>
+                          <span className="text-slate-500">InfluxDB Engine</span>
+                          <span className="font-mono bg-slate-100 px-1.5 rounded text-indigo-600">OSS v2.7+</span>
                        </div>
                        <div className="flex justify-between items-center text-xs">
                           <span className="text-slate-500">OCPP WebSocket</span>
