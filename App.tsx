@@ -11,7 +11,7 @@ import { translations } from './locales/translations';
 import { 
   Download, FileText, Server, HardDrive, Terminal, ShieldCheck, 
   Cpu, Copy, Check, ExternalLink, Package, Globe, Lock, Code2, Layers, Database,
-  Settings as SettingsIcon, Play, Rocket, Activity, Monitor
+  Settings as SettingsIcon, Play, Rocket, Activity, Monitor, CreditCard
 } from 'lucide-react';
 
 export interface LiveEvent {
@@ -32,12 +32,16 @@ const App: React.FC = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Default Grafana Config
   const [grafanaConfig, setGrafanaConfig] = useState<GrafanaConfig>({
     url: 'http://localhost:3000',
     dashboardUid: 'smart-charge-live',
     refreshInterval: '5s',
     theme: 'light'
+  });
+
+  const [paymentKeys, setPaymentKeys] = useState({
+    publicKey: 'pk_live_************************',
+    secretKey: 'sk_live_************************'
   });
 
   const t = translations[language];
@@ -82,9 +86,7 @@ const App: React.FC = () => {
         body: JSON.stringify(userData)
       });
       if (res.ok) fetchData();
-    } catch (err) {
-      console.error("Add user failed");
-    }
+    } catch (err) { console.error("Add user failed"); }
   };
 
   const handleEditUser = async (userId: string, userData: Partial<User>) => {
@@ -95,35 +97,23 @@ const App: React.FC = () => {
         body: JSON.stringify(userData)
       });
       if (res.ok) fetchData();
-    } catch (err) {
-      console.error("Edit user failed");
-    }
+    } catch (err) { console.error("Edit user failed"); }
   };
 
   const handleTopUp = async (userId: string, amount: number) => {
-    try {
-      const res = await fetch('/api/users/topup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, amount })
-      });
-      if (res.ok) fetchData();
-    } catch (err) {
-      console.error("Top up failed");
-    }
+    // Balances are updated via the verification flow now, but we refresh data here
+    fetchData();
   };
 
   const handleUpdateUserStatus = async (userId: string, status: 'Active' | 'Blocked') => {
     try {
-      const res = await fetch('/api/users/status', {
-        method: 'POST',
+      const res = await fetch(`/api/users/${userId}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, status })
+        body: JSON.stringify({ status })
       });
       if (res.ok) fetchData();
-    } catch (err) {
-      console.error("Status update failed");
-    }
+    } catch (err) { console.error("Status update failed"); }
   };
 
   const deploySteps = [
@@ -131,19 +121,13 @@ const App: React.FC = () => {
       id: 'step0',
       title: '1. InfluxDB 3.0 Engine',
       desc: language === 'es' ? 'Motor IOx de alto rendimiento.' : 'High-performance IOx engine.',
-      command: 'wget -q https://repos.influxdata.com/influxdata-archive_61499124.key\ncat influxdata-archive_61499124.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/influxdata-archive.gpg > /dev/null\necho "deb [signed-by=/etc/apt/trusted.gpg.d/influxdata-archive.gpg] https://repos.influxdata.com/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/influxdata.list\nsudo apt update && sudo apt install influxdb2\n# Version 3 settings applied via influxd CLI'
+      command: 'wget -q https://repos.influxdata.com/influxdata-archive_61499124.key\ncat influxdata-archive_61499124.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/influxdata-archive.gpg > /dev/null\necho "deb [signed-by=/etc/apt/trusted.gpg.d/influxdata-archive.gpg] https://repos.influxdata.com/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/influxdata.list\nsudo apt update && sudo apt install influxdb2'
     },
     {
       id: 'step1',
-      title: '2. Grafana OSS Setup',
-      desc: language === 'es' ? 'Instalar motor de visualización.' : 'Install visualization engine.',
-      command: 'sudo apt install -y apt-transport-https software-properties-common wget\nwget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -\nsudo add-apt-repository "deb https://packages.grafana.com/oss/deb stable main"\nsudo apt update && sudo apt install grafana\nsudo systemctl start grafana-server'
-    },
-    {
-      id: 'step2',
-      title: '3. Data Source Link',
-      desc: language === 'es' ? 'Vincular InfluxDB 3.0 a Grafana.' : 'Link InfluxDB 3.0 to Grafana.',
-      command: '# Navigate to http://localhost:3000\n# Configuration > Data Sources > Add InfluxDB\n# Query Language: Flux or SQL (InfluxDB 3.0)\n# Bucket: smartcharge_bucket'
+      title: '2. Payment API Gateway',
+      desc: language === 'es' ? 'Configurar pasarela segura.' : 'Setup secure gateway.',
+      command: '# Webhook configuration\n# URL: https://your-domain.com/api/payments/verify\n# Secret: Generated in Dashboard'
     }
   ];
 
@@ -171,6 +155,44 @@ const App: React.FC = () => {
       case 'settings':
         return (
           <div className="space-y-8 max-w-6xl pb-20">
+            {/* Payment Integration Config */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+               <div className="flex items-center gap-3 mb-8">
+                  <div className="p-3 bg-green-100 text-green-600 rounded-2xl">
+                    <CreditCard size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900">{t.paymentGateway}</h3>
+                    <p className="text-sm text-slate-500">External API integration for billing.</p>
+                  </div>
+               </div>
+               
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">{t.gatewayKey}</label>
+                      <input 
+                        type="password" 
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm focus:ring-4 focus:ring-green-500/10 focus:outline-none"
+                        value={paymentKeys.publicKey}
+                        onChange={e => setPaymentKeys({...paymentKeys, publicKey: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">{t.gatewaySecret}</label>
+                      <input 
+                        type="password" 
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm focus:ring-4 focus:ring-green-500/10 focus:outline-none"
+                        value={paymentKeys.secretKey}
+                        onChange={e => setPaymentKeys({...paymentKeys, secretKey: e.target.value})}
+                      />
+                    </div>
+                  </div>
+               </div>
+            </div>
+
             {/* Grafana Config Section */}
             <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                <div className="flex items-center gap-3 mb-8">
@@ -189,7 +211,7 @@ const App: React.FC = () => {
                       <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">{t.grafanaUrl}</label>
                       <input 
                         type="text" 
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm focus:ring-4 focus:ring-orange-500/10 focus:outline-none"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm"
                         value={grafanaConfig.url}
                         onChange={e => setGrafanaConfig({...grafanaConfig, url: e.target.value})}
                       />
@@ -198,7 +220,7 @@ const App: React.FC = () => {
                       <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">{t.dashboardUid}</label>
                       <input 
                         type="text" 
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm focus:ring-4 focus:ring-orange-500/10 focus:outline-none"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm"
                         value={grafanaConfig.dashboardUid}
                         onChange={e => setGrafanaConfig({...grafanaConfig, dashboardUid: e.target.value})}
                       />
@@ -214,22 +236,8 @@ const App: React.FC = () => {
                         >
                           <option value="5s">5 Seconds</option>
                           <option value="10s">10 Seconds</option>
-                          <option value="30s">30 Seconds</option>
                           <option value="1m">1 Minute</option>
                         </select>
-                     </div>
-                     <div>
-                        <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">UI Theme</label>
-                        <div className="flex gap-2">
-                           <button 
-                             onClick={() => setGrafanaConfig({...grafanaConfig, theme: 'light'})}
-                             className={`flex-1 py-3 rounded-xl border font-bold text-sm transition-all ${grafanaConfig.theme === 'light' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200'}`}
-                           >Light</button>
-                           <button 
-                             onClick={() => setGrafanaConfig({...grafanaConfig, theme: 'dark'})}
-                             className={`flex-1 py-3 rounded-xl border font-bold text-sm transition-all ${grafanaConfig.theme === 'dark' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200'}`}
-                           >Dark</button>
-                        </div>
                      </div>
                   </div>
                </div>
@@ -244,10 +252,9 @@ const App: React.FC = () => {
                       <div className="p-2 bg-indigo-500/20 rounded-xl">
                         <Terminal size={24} className="text-indigo-400" />
                       </div>
-                      <h4 className="text-xl font-bold text-white uppercase tracking-tight">InfluxDB 3.0 + Grafana</h4>
+                      <h4 className="text-xl font-bold text-white uppercase tracking-tight">InfluxDB 3.0 + Payment Integration</h4>
                     </div>
                   </div>
-                  
                   <div className="space-y-4">
                     {deploySteps.map((step) => (
                       <div key={step.id} className="bg-slate-800/50 rounded-2xl border border-slate-700/50 overflow-hidden hover:border-indigo-500/50 transition-all">
@@ -256,10 +263,7 @@ const App: React.FC = () => {
                             <span className="text-indigo-400 text-[10px] font-black uppercase tracking-widest">{step.title}</span>
                             <p className="text-slate-400 text-xs font-medium">{step.desc}</p>
                           </div>
-                          <button 
-                            onClick={() => handleCopy(step.command, step.id)}
-                            className="p-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-slate-300 transition-all"
-                          >
+                          <button onClick={() => handleCopy(step.command, step.id)} className="p-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-slate-300">
                             {copiedId === step.id ? <Check size={18} className="text-green-400" /> : <Copy size={18} />}
                           </button>
                         </div>
@@ -269,39 +273,6 @@ const App: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                </div>
-              </div>
-
-              <div className="lg:col-span-4 space-y-6">
-                <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                  <h4 className="font-bold text-slate-800 mb-6 flex items-center gap-2 uppercase tracking-widest text-[10px]">
-                    <Package size={14} className="text-indigo-600" />
-                    Industrial Stack
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center text-xs py-2 border-b border-slate-50">
-                      <span className="text-slate-500">TSDB Engine</span>
-                      <span className="font-bold text-slate-800">InfluxDB 3.0 IOx</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs py-2 border-b border-slate-50">
-                      <span className="text-slate-500">Visual Engine</span>
-                      <span className="font-bold text-orange-600">Grafana 10.x</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs py-2 border-b border-slate-50">
-                      <span className="text-slate-500">Messaging</span>
-                      <span className="font-bold text-slate-800">OCPP 1.6J</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-amber-50 rounded-3xl border border-amber-100 p-8">
-                  <div className="flex items-center gap-2 text-amber-800 font-bold mb-2">
-                    <Monitor size={18} />
-                    <span>Grafana Security</span>
-                  </div>
-                  <p className="text-amber-700 text-[11px] leading-relaxed font-medium">
-                    To embed Grafana dashboards, ensure <code>allow_embedding = true</code> is set in your <code>grafana.ini</code> configuration file.
-                  </p>
                 </div>
               </div>
             </div>

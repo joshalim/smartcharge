@@ -12,22 +12,18 @@ const ocppPort = process.env.OCPP_PORT || 9000;
 
 /**
  * INFLUXDB 3.0 (IOx) CONFIGURATION
- * Optimized for high-frequency EV telemetry
  */
 const url = process.env.INFLUX_URL || 'http://localhost:8086';
 const token = process.env.INFLUX_TOKEN || 'your-super-secret-token';
 const org = process.env.INFLUX_ORG || 'smartcharge';
 const bucket = process.env.INFLUX_BUCKET || 'smartcharge_bucket';
 
-// For InfluxDB 3.0 Serverless/Dedicated, use standard Flight SQL for complex queries if needed.
-// For writes and simple Flux, the standard client remains highly efficient.
 const influxDB = new InfluxDB({ url, token });
 const writeApi = influxDB.getWriteApi(org, bucket);
 const queryApi = influxDB.getQueryApi(org);
 
 console.log(`✅ InfluxDB 3.0 Engine Connected [Bucket: ${bucket}]`);
 
-// Helper to query latest state of entities
 async function getLatestState(measurement, tagKey = 'id') {
   const fluxQuery = `
     from(bucket: "${bucket}")
@@ -36,17 +32,14 @@ async function getLatestState(measurement, tagKey = 'id') {
       |> last()
       |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
   `;
-  
   try {
-    const rows = await queryApi.collectRows(fluxQuery);
-    return rows;
+    return await queryApi.collectRows(fluxQuery);
   } catch (e) {
     console.error(`Error querying ${measurement}:`, e.message);
     return [];
   }
 }
 
-// Production Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'dist')));
 
@@ -65,7 +58,6 @@ app.post('/api/users', async (req, res) => {
   try {
     const id = `USR-${Math.floor(Math.random() * 1000)}`;
     const { name, email, phoneNumber, placa, cedula, rfidTag, rfidExpiration } = req.body;
-    
     const point = new Point('users')
       .tag('id', id)
       .tag('rfidTag', rfidTag)
@@ -77,7 +69,6 @@ app.post('/api/users', async (req, res) => {
       .stringField('rfidExpiration', rfidExpiration)
       .stringField('status', 'Active')
       .floatField('balance', 0);
-    
     writeApi.writePoint(point);
     await writeApi.flush();
     res.json({ id, ...req.body, status: 'Active', balance: 0 });
@@ -86,19 +77,66 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
-app.put('/api/users/:id', async (req, res) => {
+/**
+ * PAYMENT API INTEGRATION
+ * This endpoint simulates a payment intent creation (e.g., Wompi, PayU, Stripe)
+ */
+app.post('/api/payments/create-intent', async (req, res) => {
+  const { userId, amount, method } = req.body;
+  
+  // Simulate calling external payment gateway API
+  const paymentId = `PAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  
+  // In a real scenario, you would return a public redirect URL or client secret
+  res.json({
+    success: true,
+    paymentId,
+    amount,
+    currency: 'COP',
+    status: 'pending',
+    redirectUrl: `https://mock-gateway.com/pay/${paymentId}`
+  });
+});
+
+/**
+ * VERIFY PAYMENT & TOP UP
+ * Usually called by a webhook from the payment gateway
+ */
+app.post('/api/payments/verify', async (req, res) => {
+  const { userId, amount, paymentId, status } = req.body;
+  
+  if (status !== 'approved') {
+    return res.status(400).json({ success: false, message: 'Payment not approved' });
+  }
+
   try {
-    const { id } = req.params;
-    const point = new Point('users').tag('id', id);
-    Object.entries(req.body).forEach(([key, value]) => {
-      if (typeof value === 'number') point.floatField(key, value);
-      else point.stringField(key, String(value));
-    });
-    writeApi.writePoint(point);
+    const users = await getLatestState('users');
+    const user = users.find(u => u.id === userId);
+    if (!user) throw new Error('User not found');
+
+    const newBalance = (user.balance || 0) + amount;
+    
+    // Update user balance
+    const userPoint = new Point('users')
+      .tag('id', userId)
+      .floatField('balance', newBalance);
+    
+    // Record payment transaction
+    const txPoint = new Point('transactions')
+      .tag('id', paymentId)
+      .tag('userId', userId)
+      .tag('type', 'TopUp')
+      .stringField('status', 'Completed')
+      .floatField('amount', amount)
+      .stringField('timestamp', new Date().toISOString());
+
+    writeApi.writePoint(userPoint);
+    writeApi.writePoint(txPoint);
     await writeApi.flush();
-    res.json({ id, ...req.body });
+
+    res.json({ success: true, newBalance });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -128,21 +166,6 @@ app.get('/api/logs', async (req, res) => {
   res.json(logs);
 });
 
-app.post('/api/users/topup', async (req, res) => {
-  const { userId, amount } = req.body;
-  const users = await getLatestState('users');
-  const user = users.find(u => u.id === userId);
-  const newBalance = (user?.balance || 0) + amount;
-  
-  const point = new Point('users')
-    .tag('id', userId)
-    .floatField('balance', newBalance);
-  
-  writeApi.writePoint(point);
-  await writeApi.flush();
-  res.json({ userId, balance: newBalance });
-});
-
 // SPA Fallback
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
@@ -162,7 +185,6 @@ wss.on('connection', async (ws, req) => {
   const chargerId = req.url.substring(1) || 'Unknown-Station';
   console.log(`[OCPP] New Connection: ${chargerId}`);
 
-  // Register charger presence
   const regPoint = new Point('chargers')
     .tag('id', chargerId)
     .stringField('status', 'Available')
@@ -174,7 +196,6 @@ wss.on('connection', async (ws, req) => {
       const message = JSON.parse(data.toString());
       const [type, id, action, payload] = message;
 
-      // Log Message
       const logPoint = new Point('logs')
         .tag('chargerId', chargerId)
         .tag('direction', 'IN')

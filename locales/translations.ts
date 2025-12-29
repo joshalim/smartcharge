@@ -56,6 +56,8 @@ export const translations = {
     payWithDaviplata: "Pay with Daviplata",
     payWithBreB: "Pay with Bre-B (Instant)",
     paymentSuccess: "Payment successful! Balance updated.",
+    paymentError: "Payment gateway error. Please try again.",
+    paymentInitiated: "Connecting to secure gateway...",
     processing: "Processing...",
     currencySymbol: "$COP ",
     selectPayment: "Select Payment Method",
@@ -72,7 +74,10 @@ export const translations = {
     grafanaUrl: "Grafana URL",
     dashboardUid: "Dashboard UID",
     influxVersion: "InfluxDB Engine",
-    tsdbBucket: "TSDB Bucket"
+    tsdbBucket: "TSDB Bucket",
+    paymentGateway: "Payment Gateway",
+    gatewayKey: "Public API Key",
+    gatewaySecret: "Secret Token"
   },
   es: {
     dashboard: "Centro de Comando",
@@ -130,6 +135,8 @@ export const translations = {
     payWithDaviplata: "Pagar con Daviplata",
     payWithBreB: "Pagar con Bre-B (Instantáneo)",
     paymentSuccess: "¡Pago exitoso! Saldo actualizado.",
+    paymentError: "Error en pasarela de pagos. Intente de nuevo.",
+    paymentInitiated: "Conectando con pasarela segura...",
     processing: "Procesando...",
     currencySymbol: "$COP ",
     selectPayment: "Seleccione Método de Pago",
@@ -146,6 +153,9 @@ export const translations = {
     grafanaUrl: "URL de Grafana",
     dashboardUid: "UID del Tablero",
     influxVersion: "Motor InfluxDB",
-    tsdbBucket: "Cubo TSDB"
+    tsdbBucket: "Cubo TSDB",
+    paymentGateway: "Pasarela de Pagos",
+    gatewayKey: "Llave Pública API",
+    gatewaySecret: "Token Secreto"
   }
 };
