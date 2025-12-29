@@ -1,8 +1,8 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { Charger, OCPPLog } from "../types";
+import { Charger, OCPPLog } from "./types";
 
-// Always use process.env.API_KEY directly when initializing the GoogleGenAI client
+// Always use process.env.API_KEY directly when initializing the GoogleGenAI client as per the SDK guidelines
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const getAIInsights = async (chargers: Charger[], logs: OCPPLog[]) => {
@@ -25,7 +25,7 @@ export const getAIInsights = async (chargers: Charger[], logs: OCPPLog[]) => {
   `;
 
   try {
-    // Using gemini-3-pro-preview for complex text tasks such as network analysis
+    // Using gemini-3-pro-preview for complex reasoning and technical analysis tasks
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: prompt,
@@ -41,7 +41,7 @@ export const diagnoseError = async (chargerId: string, errorCode: string) => {
   const prompt = `Provide a step-by-step diagnostic and fix guide for an OCPP-compliant EV charger (ID: ${chargerId}) reporting error code: ${errorCode}. Be specific about OCPP message flows (Reset, ClearCache, etc.)`;
   
   try {
-    // Using gemini-3-pro-preview for technical diagnostic tasks requiring advanced reasoning
+    // Using gemini-3-pro-preview for complex technical diagnostics
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: prompt,

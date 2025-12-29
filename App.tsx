@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import ChargerList from './components/ChargerList';
@@ -7,11 +7,10 @@ import UserManagement from './components/UserManagement';
 import OCPPLogs from './components/OCPPLogs';
 import AIAnalyst from './components/AIAnalyst';
 import { ViewType, Charger, Transaction, OCPPLog, ChargerStatus, User, Language } from './types';
-import { MOCK_CHARGERS, MOCK_TRANSACTIONS, MOCK_LOGS, MOCK_USERS } from './services/mockData';
 import { translations } from './locales/translations';
 import { 
   Download, FileText, Server, HardDrive, Terminal, ShieldCheck, 
-  Cpu, Copy, Check, ExternalLink, Package, Globe, Lock, Code2, Layers
+  Cpu, Copy, Check, ExternalLink, Package, Globe, Lock, Code2, Layers, Database
 } from 'lucide-react';
 
 export interface LiveEvent {
@@ -24,14 +23,41 @@ export interface LiveEvent {
 const App: React.FC = () => {
   const [activeView, setActiveView] = React.useState<ViewType>('dashboard');
   const [language, setLanguage] = React.useState<Language>('es'); 
-  const [chargers, setChargers] = React.useState<Charger[]>(MOCK_CHARGERS);
-  const [users, setUsers] = React.useState<User[]>(MOCK_USERS);
-  const [transactions, setTransactions] = React.useState<Transaction[]>(MOCK_TRANSACTIONS);
-  const [logs, setLogs] = React.useState<OCPPLog[]>(MOCK_LOGS);
-  const [liveEvents, setLiveEvents] = React.useState<LiveEvent[]>([]);
-  const [copiedId, setCopiedId] = React.useState<string | null>(null);
+  const [chargers, setChargers] = useState<Charger[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [logs, setLogs] = useState<OCPPLog[]>([]);
+  const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const t = translations[language];
+
+  const fetchData = async () => {
+    try {
+      const [cRes, uRes, tRes, lRes] = await Promise.all([
+        fetch('/api/chargers'),
+        fetch('/api/users'),
+        fetch('/api/transactions'),
+        fetch('/api/logs')
+      ]);
+      
+      if (cRes.ok) setChargers(await cRes.json());
+      if (uRes.ok) setUsers(await uRes.json());
+      if (tRes.ok) setTransactions(await tRes.json());
+      if (lRes.ok) setLogs(await lRes.json());
+    } catch (err) {
+      console.error("Failed to fetch data:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 5000); // Poll every 5s for live dashboard
+    return () => clearInterval(interval);
+  }, []);
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -39,17 +65,39 @@ const App: React.FC = () => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const addEvent = (message: string, type: LiveEvent['type'] = 'info') => {
-    const newEvent: LiveEvent = {
-      id: Math.random().toString(36).substr(2, 9),
-      timestamp: new Date().toISOString(),
-      type,
-      message
-    };
-    setLiveEvents(prev => [newEvent, ...prev.slice(0, 19)]);
+  const handleTopUp = async (userId: string, amount: number) => {
+    try {
+      const res = await fetch('/api/users/topup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, amount })
+      });
+      if (res.ok) fetchData();
+    } catch (err) {
+      console.error("Top up failed");
+    }
+  };
+
+  const handleUpdateUserStatus = async (userId: string, status: 'Active' | 'Blocked') => {
+    try {
+      const res = await fetch('/api/users/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, status })
+      });
+      if (res.ok) fetchData();
+    } catch (err) {
+      console.error("Status update failed");
+    }
   };
 
   const deploySteps = [
+    {
+      id: 'step0',
+      title: language === 'es' ? '0. Instalar MongoDB Local' : '0. Install Local MongoDB',
+      desc: language === 'es' ? 'Configurar la base de datos persistente.' : 'Setup the persistent database.',
+      command: 'sudo apt-get install gnupg curl\ncurl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor\necho "deb [ [arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/nginx/sites-available/mongodb-org-7.0.list\nsudo apt-get update\nsudo apt-get install -y mongodb-org\nsudo systemctl start mongod\nsudo systemctl enable mongod'
+    },
     {
       id: 'step1',
       title: language === 'es' ? '1. Preparación del Sistema' : '1. System Preparation',
@@ -60,7 +108,7 @@ const App: React.FC = () => {
       id: 'step2',
       title: language === 'es' ? '2. Configuración del Proyecto' : '2. Project Configuration',
       desc: language === 'es' ? 'Clonar repositorio y configurar variables de entorno.' : 'Clone repository and setup environment variables.',
-      command: 'cd /var/www\nsudo git clone <YOUR_REPO_URL> smart-charge\nsudo chown -R $USER:$USER smart-charge\ncd smart-charge\nnpm install\n\n# Create environment file\necho "API_KEY=your_gemini_api_key" > .env'
+      command: 'cd /var/www\nsudo git clone <YOUR_REPO_URL> smart-charge\nsudo chown -R $USER:$USER smart-charge\ncd smart-charge\nnpm install\n\n# Environment setup\necho "VITE_API_KEY=your_gemini_api_key" > .env\necho "MONGO_URI=mongodb://localhost:27017/smartcharge" >> .env'
     },
     {
       id: 'step3',
@@ -72,19 +120,16 @@ const App: React.FC = () => {
 
   const nginxConfig = `server {
     listen 80;
-    server_name smartcharge.yourdomain.com; # Change this
+    server_name smartcharge.yourdomain.com;
 
-    # Dashboard Frontend & API
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
     }
 
-    # OCPP WebSocket Redirect
     location /ocpp {
         proxy_pass http://localhost:9000;
         proxy_http_version 1.1;
@@ -92,16 +137,29 @@ const App: React.FC = () => {
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
     }
+
+    location /api {
+        proxy_pass http://localhost:3000/api;
+    }
 }`;
 
   const renderContent = () => {
+    if (isLoading) return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="flex flex-col items-center gap-4">
+          <Database size={48} className="text-blue-500 animate-pulse" />
+          <p className="text-slate-500 font-bold">Synchronizing with MongoDB...</p>
+        </div>
+      </div>
+    );
+
     switch (activeView) {
       case 'dashboard':
         return <Dashboard chargers={chargers} transactions={transactions} liveEvents={liveEvents} language={language} />;
       case 'chargers':
         return <ChargerList chargers={chargers} onRemoteAction={(id, act) => {}} onAddCharger={(c) => {}} language={language} />;
       case 'users':
-        return <UserManagement users={users} onAddUser={(u) => {}} onEditUser={(id, u) => {}} onUpdateStatus={(id, s) => {}} onTopUp={(id, a) => {}} language={language} />;
+        return <UserManagement users={users} onAddUser={() => {}} onEditUser={() => {}} onUpdateStatus={handleUpdateUserStatus} onTopUp={handleTopUp} language={language} />;
       case 'logs':
         return <OCPPLogs logs={logs} />;
       case 'ai-insights':
@@ -121,12 +179,11 @@ const App: React.FC = () => {
               </div>
               <div className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-xl border border-green-100 font-bold text-sm">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                System Ready for Production
+                MongoDB Connected
               </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              {/* Main Steps */}
               <div className="lg:col-span-8 space-y-6">
                 {deploySteps.map((step) => (
                   <div key={step.id} className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden transition-all hover:shadow-md">
@@ -151,7 +208,6 @@ const App: React.FC = () => {
                   </div>
                 ))}
 
-                {/* Nginx Block */}
                 <div className="bg-indigo-950 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden group">
                   <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
                     <Globe size={120} />
@@ -171,9 +227,6 @@ const App: React.FC = () => {
                          {copiedId === 'nginx' ? <Check size={20} className="text-emerald-400" /> : <Copy size={20} />}
                       </button>
                     </div>
-                    <p className="text-indigo-200 text-sm mb-6 leading-relaxed max-w-xl font-medium">
-                      Navigate to <code className="bg-black/30 px-1.5 py-0.5 rounded text-white font-bold">/etc/nginx/sites-available/default</code> and paste this configuration to enable high-performance routing.
-                    </p>
                     <div className="bg-black/40 rounded-2xl p-6 font-mono text-[11px] leading-normal border border-white/5 overflow-x-auto text-indigo-100">
                       {nginxConfig}
                     </div>
@@ -181,41 +234,17 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* Sidebar Info */}
               <div className="lg:col-span-4 space-y-6">
                 <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                   <h4 className="font-bold text-slate-800 mb-6 flex items-center gap-2 uppercase tracking-widest text-xs">
-                    <ShieldCheck size={16} className="text-blue-600" />
-                    Security Baseline
+                    <Database size={16} className="text-blue-600" />
+                    Storage Engine
                   </h4>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100 group">
-                      <div className="p-2 bg-white rounded-lg shadow-sm group-hover:text-blue-600 transition-colors">
-                        <Lock size={18} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-slate-800">UFW Firewall</p>
-                        <p className="text-[11px] text-slate-400">Open ports 80, 443, 9000</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100 group">
-                      <div className="p-2 bg-white rounded-lg shadow-sm group-hover:text-green-600 transition-colors">
-                        <ShieldCheck size={18} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-slate-800">Certbot (SSL)</p>
-                        <p className="text-[11px] text-slate-400">sudo certbot --nginx</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100 group">
-                      <div className="p-2 bg-white rounded-lg shadow-sm group-hover:text-amber-600 transition-colors">
-                        <Layers size={18} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-slate-800">Node Cluster</p>
-                        <p className="text-[11px] text-slate-400">Use pm2 -i max for scaling</p>
-                      </div>
-                    </div>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-tighter">Connection String</p>
+                    <code className="text-[10px] break-all text-blue-600 bg-white p-2 rounded block border border-slate-200">
+                      mongodb://localhost:27017/smartcharge
+                    </code>
                   </div>
                 </div>
 
@@ -225,26 +254,13 @@ const App: React.FC = () => {
                     <h4 className="font-bold">OCPP Connectivity</h4>
                   </div>
                   <div className="space-y-4">
-                    <p className="text-sm text-slate-300 leading-relaxed font-medium">
-                      Configure your hardware chargers to point to the following WebSocket endpoint:
-                    </p>
                     <div className="p-4 bg-black/40 rounded-2xl border border-white/5">
                       <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Station URL Format</p>
                       <code className="text-blue-400 font-bold break-all text-xs">
                         ws://SERVER_IP/ocpp/STATION_ID
                       </code>
                     </div>
-                    <p className="text-[10px] text-slate-500 italic">
-                      * If using SSL, use <b>wss://</b> protocol instead.
-                    </p>
                   </div>
-                </div>
-
-                <div className="p-6 border-2 border-dashed border-slate-200 rounded-3xl text-center">
-                  <p className="text-xs text-slate-400 font-medium mb-3">Need specialized hardware integration?</p>
-                  <button className="text-blue-600 font-bold text-sm hover:underline flex items-center justify-center gap-1 mx-auto">
-                    Contact Enterprise Support <ExternalLink size={14} />
-                  </button>
                 </div>
               </div>
             </div>

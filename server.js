@@ -3,62 +3,166 @@ const express = require('express');
 const path = require('path');
 const http = require('http');
 const WebSocket = require('ws');
+const mongoose = require('mongoose');
 require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 3000;
 const ocppPort = process.env.OCPP_PORT || 9000;
+const mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/smartcharge';
+
+// MongoDB Connection
+mongoose.connect(mongoUri)
+  .then(() => console.log('✅ Connected to MongoDB local instance'))
+  .catch(err => console.error('❌ MongoDB connection error:', err));
+
+// Schemas
+const ChargerSchema = new mongoose.Schema({
+  id: { type: String, unique: true, required: true },
+  name: String,
+  status: { type: String, default: 'Available' },
+  location: { lat: Number, lng: Number, address: String },
+  lastHeartbeat: { type: Date, default: Date.now },
+  model: String,
+  firmware: String,
+  currentPower: { type: Number, default: 0 },
+  totalEnergy: { type: Number, default: 0 }
+});
+
+const UserSchema = new mongoose.Schema({
+  id: { type: String, unique: true, required: true },
+  name: String,
+  email: String,
+  phoneNumber: String,
+  placa: String,
+  cedula: String,
+  rfidTag: { type: String, unique: true },
+  status: { type: String, default: 'Active' },
+  joinedDate: { type: Date, default: Date.now },
+  balance: { type: Number, default: 0 }
+});
+
+const TransactionSchema = new mongoose.Schema({
+  id: String,
+  chargerId: String,
+  userId: String,
+  startTime: { type: Date, default: Date.now },
+  endTime: Date,
+  energyConsumed: { type: Number, default: 0 },
+  cost: { type: Number, default: 0 },
+  status: { type: String, default: 'Active' }
+});
+
+const LogSchema = new mongoose.Schema({
+  timestamp: { type: Date, default: Date.now },
+  direction: String,
+  messageType: String,
+  payload: mongoose.Schema.Types.Mixed,
+  chargerId: String
+});
+
+const Charger = mongoose.model('Charger', ChargerSchema);
+const User = mongoose.model('User', UserSchema);
+const Transaction = mongoose.model('Transaction', TransactionSchema);
+const Log = mongoose.model('Log', LogSchema);
 
 // Production Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// SPA Fallback: Routes all requests to index.html for React Router
+// API Endpoints
+app.get('/api/chargers', async (req, res) => {
+  const chargers = await Charger.find();
+  res.json(chargers);
+});
+
+app.get('/api/users', async (req, res) => {
+  const users = await User.find();
+  res.json(users);
+});
+
+app.get('/api/transactions', async (req, res) => {
+  const txs = await Transaction.find().sort({ startTime: -1 }).limit(100);
+  res.json(txs);
+});
+
+app.get('/api/logs', async (req, res) => {
+  const logs = await Log.find().sort({ timestamp: -1 }).limit(200);
+  res.json(logs);
+});
+
+app.post('/api/users/topup', async (req, res) => {
+  const { userId, amount } = req.body;
+  const user = await User.findOneAndUpdate({ id: userId }, { $inc: { balance: amount } }, { new: true });
+  res.json(user);
+});
+
+app.post('/api/users/status', async (req, res) => {
+  const { userId, status } = req.body;
+  const user = await User.findOneAndUpdate({ id: userId }, { status }, { new: true });
+  res.json(user);
+});
+
+// SPA Fallback
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
-// Create the main HTTP server for the Dashboard
 const server = http.createServer(app);
 
-// Create the OCPP WebSocket Server
+// OCPP WebSocket Server
 const wss = new WebSocket.Server({ port: ocppPort }, () => {
   console.log('--------------------------------------------------');
   console.log('⚡ SMART CHARGE - CENTRAL SYSTEM STANDBY');
   console.log(`📡 OCPP WS: ws://localhost:${ocppPort}`);
-  console.log(`🌐 CMS WEB: http://localhost:${port}`);
   console.log('--------------------------------------------------');
 });
 
-wss.on('connection', (ws, req) => {
+wss.on('connection', async (ws, req) => {
   const chargerId = req.url.substring(1) || 'Unknown-Station';
-  console.log(`[OCPP] New Connection Request: ${chargerId} from ${req.socket.remoteAddress}`);
+  console.log(`[OCPP] New Connection: ${chargerId}`);
 
-  ws.on('message', (data) => {
+  // Auto-register or update charger in DB
+  await Charger.findOneAndUpdate(
+    { id: chargerId },
+    { lastHeartbeat: new Date() },
+    { upsert: true }
+  );
+
+  ws.on('message', async (data) => {
     try {
       const message = JSON.parse(data.toString());
-      console.log(`[OCPP][IN][${chargerId}]`, JSON.stringify(message));
-      
-      // Simple OCPP 1.6 BootNotification Mock Response
-      if (message[2] === 'BootNotification') {
-        const response = [3, message[1], {
+      const [type, id, action, payload] = message;
+
+      // Save Log
+      await Log.create({
+        chargerId,
+        direction: 'IN',
+        messageType: action || 'Unknown',
+        payload: payload || message[2]
+      });
+
+      // Simple Handlers
+      if (action === 'BootNotification') {
+        const response = [3, id, {
           status: 'Accepted',
           currentTime: new Date().toISOString(),
           interval: 300
         }];
         ws.send(JSON.stringify(response));
-        console.log(`[OCPP][OUT][${chargerId}] Accepted BootNotification`);
+        await Charger.findOneAndUpdate({ id: chargerId }, { status: 'Available' });
+      }
+
+      if (action === 'StatusNotification') {
+        const { status } = payload;
+        await Charger.findOneAndUpdate({ id: chargerId }, { status });
       }
     } catch (e) {
-      console.error(`[OCPP][ERR][${chargerId}] Invalid Message Frame`);
+      console.error(`[OCPP][ERR][${chargerId}]`, e.message);
     }
-  });
-
-  ws.on('close', () => {
-    console.log(`[OCPP] Charger Disconnected: ${chargerId}`);
   });
 });
 
 server.listen(port, () => {
-  console.log(`Dashboard serving from: /var/www/smart-charge/dist`);
+  console.log(`Dashboard serving from: http://localhost:${port}`);
 });
