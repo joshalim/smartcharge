@@ -37,6 +37,7 @@ const UserSchema = new mongoose.Schema({
   placa: String,
   cedula: String,
   rfidTag: { type: String, unique: true },
+  rfidExpiration: Date,
   status: { type: String, default: 'Active' },
   joinedDate: { type: Date, default: Date.now },
   balance: { type: Number, default: 0 }
@@ -79,6 +80,25 @@ app.get('/api/chargers', async (req, res) => {
 app.get('/api/users', async (req, res) => {
   const users = await User.find();
   res.json(users);
+});
+
+app.post('/api/users', async (req, res) => {
+  try {
+    const userId = `USR-${Math.floor(Math.random() * 1000)}`;
+    const user = await User.create({ ...req.body, id: userId });
+    res.json(user);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.put('/api/users/:id', async (req, res) => {
+  try {
+    const user = await User.findOneAndUpdate({ id: req.params.id }, req.body, { new: true });
+    res.json(user);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 app.get('/api/transactions', async (req, res) => {
@@ -156,6 +176,28 @@ wss.on('connection', async (ws, req) => {
       if (action === 'StatusNotification') {
         const { status } = payload;
         await Charger.findOneAndUpdate({ id: chargerId }, { status });
+      }
+
+      // Authorize with RFID expiration check
+      if (action === 'Authorize') {
+        const { idTag } = payload;
+        const user = await User.findOne({ rfidTag: idTag });
+        
+        let status = 'Invalid';
+        if (user) {
+          const now = new Date();
+          const isExpired = user.rfidExpiration && new Date(user.rfidExpiration) < now;
+          if (user.status === 'Active' && !isExpired) {
+            status = 'Accepted';
+          } else if (isExpired) {
+            status = 'Expired';
+          } else if (user.status === 'Blocked') {
+            status = 'Blocked';
+          }
+        }
+
+        const response = [3, id, { idTagInfo: { status } }];
+        ws.send(JSON.stringify(response));
       }
     } catch (e) {
       console.error(`[OCPP][ERR][${chargerId}]`, e.message);

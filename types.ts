@@ -34,6 +34,7 @@ export interface User {
   placa: string;
   cedula: string;
   rfidTag: string;
+  rfidExpiration: string; // ISO date string
   status: 'Active' | 'Blocked';
   joinedDate: string;
   balance: number;

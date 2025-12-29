@@ -57,6 +57,8 @@ export const MOCK_USERS: User[] = [
     placa: 'GKF-452',
     cedula: '1.020.344.551',
     rfidTag: 'RFID_A7B2991',
+    // Fix: Added missing rfidExpiration property as required by User type
+    rfidExpiration: '2025-12-31T23:59:59Z',
     status: 'Active',
     joinedDate: '2023-10-12',
     balance: 180000.00
@@ -69,6 +71,8 @@ export const MOCK_USERS: User[] = [
     placa: 'LML-901',
     cedula: '1.098.765.432',
     rfidTag: 'RFID_82CC104',
+    // Fix: Added missing rfidExpiration property as required by User type
+    rfidExpiration: '2026-01-01T00:00:00Z',
     status: 'Active',
     joinedDate: '2024-01-05',
     balance: 48800.00
@@ -81,6 +85,8 @@ export const MOCK_USERS: User[] = [
     placa: 'AAA-001',
     cedula: '80.123.456',
     rfidTag: 'RFID_F009D12',
+    // Fix: Added missing rfidExpiration property as required by User type
+    rfidExpiration: '2024-05-20T23:59:59Z',
     status: 'Blocked',
     joinedDate: '2023-11-20',
     balance: -20000.00

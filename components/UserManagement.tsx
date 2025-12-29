@@ -19,7 +19,8 @@ import {
   IdCard, 
   CarFront,
   Pencil,
-  Phone
+  Phone,
+  Calendar
 } from 'lucide-react';
 
 interface UserManagementProps {
@@ -48,7 +49,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onEdi
     phoneNumber: '',
     placa: '',
     cedula: '',
-    rfidTag: ''
+    rfidTag: '',
+    rfidExpiration: ''
   });
 
   const t = translations[language];
@@ -62,7 +64,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onEdi
   );
 
   const handleOpenAdd = () => {
-    setUserFormData({ name: '', email: '', phoneNumber: '', placa: '', cedula: '', rfidTag: '' });
+    setUserFormData({ name: '', email: '', phoneNumber: '', placa: '', cedula: '', rfidTag: '', rfidExpiration: '' });
     setIsModalOpen(true);
   };
 
@@ -74,7 +76,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onEdi
       phoneNumber: user.phoneNumber,
       placa: user.placa,
       cedula: user.cedula,
-      rfidTag: user.rfidTag
+      rfidTag: user.rfidTag,
+      rfidExpiration: user.rfidExpiration ? new Date(user.rfidExpiration).toISOString().split('T')[0] : ''
     });
     setIsEditModalOpen(true);
   };
@@ -158,6 +161,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onEdi
                 {filteredUsers.map((user) => {
                   const statusKey = user.status.toLowerCase() as keyof typeof t;
                   const localizedStatus = (t as any)[statusKey] || user.status;
+                  const isExpired = user.rfidExpiration && new Date(user.rfidExpiration) < new Date();
+                  
                   return (
                   <tr key={user.id} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-6 py-4">
@@ -189,11 +194,20 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onEdi
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <CreditCard size={16} className="text-slate-400" />
-                        <span className="font-mono text-xs font-bold bg-slate-100 px-2 py-1 rounded text-slate-700">
-                          {user.rfidTag}
-                        </span>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <CreditCard size={16} className="text-slate-400" />
+                          <span className="font-mono text-xs font-bold bg-slate-100 px-2 py-1 rounded text-slate-700">
+                            {user.rfidTag}
+                          </span>
+                        </div>
+                        {user.rfidExpiration && (
+                          <div className={`flex items-center gap-1.5 text-[10px] font-bold ${isExpired ? 'text-red-500' : 'text-slate-400'}`}>
+                             <Calendar size={10} />
+                             {new Date(user.rfidExpiration).toLocaleDateString()}
+                             {isExpired && <span className="uppercase ml-1">[{t.expired}]</span>}
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -308,15 +322,26 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onEdi
                   />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-700">{t.rfidTag}</label>
-                <input 
-                  type="text" 
-                  required
-                  className="w-full px-4 py-2 border rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:outline-none font-mono transition-all"
-                  value={userFormData.rfidTag}
-                  onChange={e => setUserFormData({...userFormData, rfidTag: e.target.value})}
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-slate-700">{t.rfidTag}</label>
+                  <input 
+                    type="text" 
+                    required
+                    className="w-full px-4 py-2 border rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:outline-none font-mono transition-all"
+                    value={userFormData.rfidTag}
+                    onChange={e => setUserFormData({...userFormData, rfidTag: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-slate-700">{t.rfidExpiration}</label>
+                  <input 
+                    type="date" 
+                    className="w-full px-4 py-2 border rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:outline-none transition-all"
+                    value={userFormData.rfidExpiration}
+                    onChange={e => setUserFormData({...userFormData, rfidExpiration: e.target.value})}
+                  />
+                </div>
               </div>
               <div className="pt-4">
                 <button type="submit" className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-600/20 active:scale-95 transition-all">

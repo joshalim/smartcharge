@@ -1,20 +1,39 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
 
-# Run and deploy your AI Studio app
+# SMART Charge - OCPP Central System
 
-This contains everything you need to run your app locally.
+A high-performance EV charging management system (CMS) built for production Ubuntu environments.
 
-View your app in AI Studio: https://ai.studio/apps/drive/17Y-b-XgyguLBu2T2GEmv2JKwhIt3NXJK
+## Features
+- **OCPP 1.6J Support**: Full WebSocket communication with hardware.
+- **Real-time Monitoring**: Live telemetry and event streaming.
+- **RFID Management**: Expiration dates and credit top-ups.
+- **AI Diagnostics**: Predictive maintenance via Google Gemini.
+- **Local Storage**: Secure MongoDB instance on your own server.
 
-## Run Locally
+## Installation (Ubuntu 22.04/24.04)
 
-**Prerequisites:**  Node.js
+### Automated Install
+```bash
+chmod +x setup.sh
+./setup.sh
+```
 
+### Manual Steps
+1. **Database**: Install MongoDB 7.0 Community Edition.
+2. **Runtime**: Install Node.js 20.x (LTS).
+3. **App**:
+   - Clone the repository.
+   - Run `npm install`.
+   - Create a `.env` file with `MONGO_URI` and `VITE_API_KEY`.
+4. **Build**: Run `npm run build` to generate the production frontend.
+5. **Persistence**: Use `pm2` to manage the `server.js` process.
+6. **Network**: Configure Nginx as a reverse proxy for ports 3000 (HTTP) and 9000 (OCPP WebSocket).
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Architecture
+- **Frontend**: React 19 + Tailwind CSS + Vite.
+- **Backend**: Node.js + Express + WebSocket (ws).
+- **Database**: MongoDB (Mongoose).
+- **AI**: Gemini 2.5/3 Pro for diagnostic reasoning.
+
+## License
+MIT
