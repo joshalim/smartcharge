@@ -10,6 +10,13 @@ export enum ChargerStatus {
 
 export type Language = 'en' | 'es';
 
+export interface GrafanaConfig {
+  url: string;
+  dashboardUid: string;
+  refreshInterval: string;
+  theme: 'light' | 'dark';
+}
+
 export interface Charger {
   id: string;
   name: string;

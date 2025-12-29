@@ -1,7 +1,7 @@
 
 export const translations = {
   en: {
-    dashboard: "Dashboard",
+    dashboard: "Command Center",
     chargers: "Chargers",
     users: "Users & RFID",
     transactions: "Transactions",
@@ -12,7 +12,7 @@ export const translations = {
     totalEnergy: "Total Energy",
     currentLoad: "Current Load",
     dailyRevenue: "Daily Revenue ($COP)",
-    liveTelemetry: "LIVE TELEMETRY",
+    liveTelemetry: "GRAFANA LIVE",
     liveEventStream: "Live Event Stream",
     waitingEvents: "Waiting for events...",
     monitoringGrid: "Active Monitoring Grid",
@@ -67,10 +67,15 @@ export const translations = {
     serverStatus: "Server Status",
     osVersion: "OS Version",
     nodeVersion: "Node.js Version",
-    uptime: "Uptime"
+    uptime: "Uptime",
+    grafanaConfig: "Grafana Visualization",
+    grafanaUrl: "Grafana URL",
+    dashboardUid: "Dashboard UID",
+    influxVersion: "InfluxDB Engine",
+    tsdbBucket: "TSDB Bucket"
   },
   es: {
-    dashboard: "Tablero",
+    dashboard: "Centro de Comando",
     chargers: "Estaciones",
     users: "Usuarios y RFID",
     transactions: "Transacciones",
@@ -81,7 +86,7 @@ export const translations = {
     totalEnergy: "Energía Total",
     currentLoad: "Carga Actual",
     dailyRevenue: "Ingresos Diarios ($COP)",
-    liveTelemetry: "TELEMETRÍA EN VIVO",
+    liveTelemetry: "GRAFANA EN VIVO",
     liveEventStream: "Flujo de Eventos",
     waitingEvents: "Esperando eventos...",
     monitoringGrid: "Red de Monitoreo Activa",
@@ -136,6 +141,11 @@ export const translations = {
     serverStatus: "Estado del Servidor",
     osVersion: "Versión SO",
     nodeVersion: "Versión Node.js",
-    uptime: "Tiempo de Actividad"
+    uptime: "Tiempo de Actividad",
+    grafanaConfig: "Visualización Grafana",
+    grafanaUrl: "URL de Grafana",
+    dashboardUid: "UID del Tablero",
+    influxVersion: "Motor InfluxDB",
+    tsdbBucket: "Cubo TSDB"
   }
 };

@@ -6,12 +6,12 @@ import ChargerList from './components/ChargerList';
 import UserManagement from './components/UserManagement';
 import OCPPLogs from './components/OCPPLogs';
 import AIAnalyst from './components/AIAnalyst';
-import { ViewType, Charger, Transaction, OCPPLog, ChargerStatus, User, Language } from './types';
+import { ViewType, Charger, Transaction, OCPPLog, ChargerStatus, User, Language, GrafanaConfig } from './types';
 import { translations } from './locales/translations';
 import { 
   Download, FileText, Server, HardDrive, Terminal, ShieldCheck, 
   Cpu, Copy, Check, ExternalLink, Package, Globe, Lock, Code2, Layers, Database,
-  Settings as SettingsIcon, Play, Rocket
+  Settings as SettingsIcon, Play, Rocket, Activity, Monitor
 } from 'lucide-react';
 
 export interface LiveEvent {
@@ -31,6 +31,14 @@ const App: React.FC = () => {
   const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Default Grafana Config
+  const [grafanaConfig, setGrafanaConfig] = useState<GrafanaConfig>({
+    url: 'http://localhost:3000',
+    dashboardUid: 'smart-charge-live',
+    refreshInterval: '5s',
+    theme: 'light'
+  });
 
   const t = translations[language];
 
@@ -120,68 +128,38 @@ const App: React.FC = () => {
 
   const deploySteps = [
     {
-      id: 'quick',
-      title: language === 'es' ? '⚡ Instalación Rápida' : '⚡ Quick Install',
-      desc: language === 'es' ? 'Script automatizado para Ubuntu.' : 'Automated script for Ubuntu.',
-      command: 'curl -fsSL https://raw.githubusercontent.com/your-repo/smart-charge/main/setup.sh | bash'
-    },
-    {
       id: 'step0',
-      title: language === 'es' ? '1. Configurar MongoDB' : '1. Configure MongoDB',
-      desc: language === 'es' ? 'Instalación de la base de datos local.' : 'Local database installation.',
-      command: 'curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor\necho "deb [ [arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list\nsudo apt update && sudo apt install -y mongodb-org\nsudo systemctl start mongod && sudo systemctl enable mongod'
+      title: '1. InfluxDB 3.0 Engine',
+      desc: language === 'es' ? 'Motor IOx de alto rendimiento.' : 'High-performance IOx engine.',
+      command: 'wget -q https://repos.influxdata.com/influxdata-archive_61499124.key\ncat influxdata-archive_61499124.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/influxdata-archive.gpg > /dev/null\necho "deb [signed-by=/etc/apt/trusted.gpg.d/influxdata-archive.gpg] https://repos.influxdata.com/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/influxdata.list\nsudo apt update && sudo apt install influxdb2\n# Version 3 settings applied via influxd CLI'
     },
     {
       id: 'step1',
-      title: language === 'es' ? '2. Entorno Node.js' : '2. Node.js Runtime',
-      desc: language === 'es' ? 'Instalar Node 20 y PM2.' : 'Install Node 20 and PM2.',
-      command: 'curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -\nsudo apt install -y nodejs nginx\nsudo npm install -g pm2'
+      title: '2. Grafana OSS Setup',
+      desc: language === 'es' ? 'Instalar motor de visualización.' : 'Install visualization engine.',
+      command: 'sudo apt install -y apt-transport-https software-properties-common wget\nwget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -\nsudo add-apt-repository "deb https://packages.grafana.com/oss/deb stable main"\nsudo apt update && sudo apt install grafana\nsudo systemctl start grafana-server'
     },
     {
       id: 'step2',
-      title: language === 'es' ? '3. Despliegue de App' : '3. App Deployment',
-      desc: language === 'es' ? 'Build y ejecución persistente.' : 'Build and persistent execution.',
-      command: 'git clone <repo_url> smart-charge && cd smart-charge\nnpm install\nnpm run build\npm2 start server.js --name "smart-charge"\npm2 save'
+      title: '3. Data Source Link',
+      desc: language === 'es' ? 'Vincular InfluxDB 3.0 a Grafana.' : 'Link InfluxDB 3.0 to Grafana.',
+      command: '# Navigate to http://localhost:3000\n# Configuration > Data Sources > Add InfluxDB\n# Query Language: Flux or SQL (InfluxDB 3.0)\n# Bucket: smartcharge_bucket'
     }
   ];
-
-  const nginxConfig = `server {
-    listen 80;
-    server_name smartcharge.local;
-
-    # Backend API & Dashboard
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    # OCPP WebSocket (ws://ip/ocpp)
-    location /ocpp {
-        proxy_pass http://localhost:9000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-    }
-}`;
 
   const renderContent = () => {
     if (isLoading) return (
       <div className="flex items-center justify-center h-[60vh]">
         <div className="flex flex-col items-center gap-4">
-          <Database size={48} className="text-blue-500 animate-pulse" />
-          <p className="text-slate-500 font-bold">Synchronizing with MongoDB...</p>
+          <Activity size={48} className="text-indigo-500 animate-pulse" />
+          <p className="text-slate-500 font-black uppercase tracking-widest text-xs">Syncing Command Center...</p>
         </div>
       </div>
     );
 
     switch (activeView) {
       case 'dashboard':
-        return <Dashboard chargers={chargers} transactions={transactions} liveEvents={liveEvents} language={language} />;
+        return <Dashboard chargers={chargers} transactions={transactions} liveEvents={liveEvents} language={language} grafanaConfig={grafanaConfig} />;
       case 'chargers':
         return <ChargerList chargers={chargers} onRemoteAction={() => {}} onAddCharger={() => {}} language={language} />;
       case 'users':
@@ -193,42 +171,90 @@ const App: React.FC = () => {
       case 'settings':
         return (
           <div className="space-y-8 max-w-6xl pb-20">
-            <div className="bg-white rounded-3xl border border-slate-200 p-10 shadow-sm relative overflow-hidden">
-               <div className="absolute top-0 right-0 p-12 opacity-[0.03]">
-                  <Rocket size={240} />
-               </div>
-               <div className="relative z-10">
-                <div className="flex items-center gap-4 mb-2">
-                  <div className="p-3 bg-blue-600 rounded-2xl text-white shadow-xl shadow-blue-600/20">
-                    <Server size={32} />
+            {/* Grafana Config Section */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+               <div className="flex items-center gap-3 mb-8">
+                  <div className="p-3 bg-orange-100 text-orange-600 rounded-2xl">
+                    <Monitor size={24} />
                   </div>
                   <div>
-                    <h3 className="text-3xl font-black text-slate-900 tracking-tight">{t.deployment} Console</h3>
-                    <p className="text-slate-500 font-medium">Full Installation Guide for Ubuntu 22.04 / 24.04 LTS</p>
+                    <h3 className="text-xl font-bold text-slate-900">{t.grafanaConfig}</h3>
+                    <p className="text-sm text-slate-500">Live dashboard integration settings.</p>
                   </div>
-                </div>
+               </div>
+               
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">{t.grafanaUrl}</label>
+                      <input 
+                        type="text" 
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm focus:ring-4 focus:ring-orange-500/10 focus:outline-none"
+                        value={grafanaConfig.url}
+                        onChange={e => setGrafanaConfig({...grafanaConfig, url: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">{t.dashboardUid}</label>
+                      <input 
+                        type="text" 
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm focus:ring-4 focus:ring-orange-500/10 focus:outline-none"
+                        value={grafanaConfig.dashboardUid}
+                        onChange={e => setGrafanaConfig({...grafanaConfig, dashboardUid: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                     <div>
+                        <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">Refresh Interval</label>
+                        <select 
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm"
+                          value={grafanaConfig.refreshInterval}
+                          onChange={e => setGrafanaConfig({...grafanaConfig, refreshInterval: e.target.value})}
+                        >
+                          <option value="5s">5 Seconds</option>
+                          <option value="10s">10 Seconds</option>
+                          <option value="30s">30 Seconds</option>
+                          <option value="1m">1 Minute</option>
+                        </select>
+                     </div>
+                     <div>
+                        <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">UI Theme</label>
+                        <div className="flex gap-2">
+                           <button 
+                             onClick={() => setGrafanaConfig({...grafanaConfig, theme: 'light'})}
+                             className={`flex-1 py-3 rounded-xl border font-bold text-sm transition-all ${grafanaConfig.theme === 'light' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200'}`}
+                           >Light</button>
+                           <button 
+                             onClick={() => setGrafanaConfig({...grafanaConfig, theme: 'dark'})}
+                             className={`flex-1 py-3 rounded-xl border font-bold text-sm transition-all ${grafanaConfig.theme === 'dark' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200'}`}
+                           >Dark</button>
+                        </div>
+                     </div>
+                  </div>
                </div>
             </div>
 
+            {/* Deployment Steps */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               <div className="lg:col-span-8 space-y-6">
                 <div className="bg-slate-900 rounded-3xl p-8 border border-slate-800 shadow-xl group">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-500/20 rounded-xl">
-                        <Play size={24} className="text-blue-400" />
+                      <div className="p-2 bg-indigo-500/20 rounded-xl">
+                        <Terminal size={24} className="text-indigo-400" />
                       </div>
-                      <h4 className="text-xl font-bold text-white uppercase tracking-tight">Step-by-Step Installation</h4>
+                      <h4 className="text-xl font-bold text-white uppercase tracking-tight">InfluxDB 3.0 + Grafana</h4>
                     </div>
                   </div>
                   
                   <div className="space-y-4">
                     {deploySteps.map((step) => (
-                      <div key={step.id} className="bg-slate-800/50 rounded-2xl border border-slate-700/50 overflow-hidden hover:border-blue-500/50 transition-all">
+                      <div key={step.id} className="bg-slate-800/50 rounded-2xl border border-slate-700/50 overflow-hidden hover:border-indigo-500/50 transition-all">
                         <div className="px-6 py-4 flex items-center justify-between border-b border-slate-700/50">
                           <div>
-                            <span className="text-blue-400 text-xs font-black uppercase tracking-widest">{step.title}</span>
-                            <p className="text-slate-400 text-sm">{step.desc}</p>
+                            <span className="text-indigo-400 text-[10px] font-black uppercase tracking-widest">{step.title}</span>
+                            <p className="text-slate-400 text-xs font-medium">{step.desc}</p>
                           </div>
                           <button 
                             onClick={() => handleCopy(step.command, step.id)}
@@ -237,97 +263,44 @@ const App: React.FC = () => {
                             {copiedId === step.id ? <Check size={18} className="text-green-400" /> : <Copy size={18} />}
                           </button>
                         </div>
-                        <div className="p-6 bg-black/40 font-mono text-xs leading-relaxed overflow-x-auto text-emerald-400">
+                        <div className="p-6 bg-black/40 font-mono text-[11px] leading-relaxed overflow-x-auto text-indigo-300">
                           {step.command}
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
-
-                <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-slate-100 rounded-xl">
-                        <Globe size={24} className="text-slate-600" />
-                      </div>
-                      <h4 className="text-xl font-bold text-slate-800">Nginx Proxy Configuration</h4>
-                    </div>
-                    <button 
-                      onClick={() => handleCopy(nginxConfig, 'nginx')}
-                      className="p-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-slate-600 transition-all"
-                    >
-                      {copiedId === 'nginx' ? <Check size={18} className="text-green-600" /> : <Copy size={18} />}
-                    </button>
-                  </div>
-                  <p className="text-sm text-slate-500 mb-4 font-medium italic">
-                    File path: <code className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-800 font-bold">/etc/nginx/sites-available/default</code>
-                  </p>
-                  <div className="bg-slate-50 rounded-2xl p-6 font-mono text-xs border border-slate-100 text-slate-600 overflow-x-auto leading-relaxed">
-                    {nginxConfig}
-                  </div>
-                </div>
               </div>
 
               <div className="lg:col-span-4 space-y-6">
-                <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-4 opacity-10">
-                    <ShieldCheck size={120} />
-                  </div>
-                  <h4 className="text-lg font-bold mb-4 flex items-center gap-2">
-                    <Lock size={20} /> Production Security
-                  </h4>
-                  <ul className="space-y-4 text-sm font-medium text-blue-100">
-                    <li className="flex items-start gap-3">
-                      <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">1</div>
-                      <span>Enable UFW firewall: <code>ufw allow 80,443,9000/tcp</code></span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">2</div>
-                      <span>Install SSL via Certbot: <code>sudo certbot --nginx</code></span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">3</div>
-                      <span>Restrict MongoDB to localhost access only.</span>
-                    </li>
-                  </ul>
-                </div>
-
                 <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                   <h4 className="font-bold text-slate-800 mb-6 flex items-center gap-2 uppercase tracking-widest text-[10px]">
-                    <Package size={14} className="text-blue-600" />
-                    Stack Overview
+                    <Package size={14} className="text-indigo-600" />
+                    Industrial Stack
                   </h4>
                   <div className="space-y-3">
-                    <div className="flex justify-between items-center text-sm py-2 border-b border-slate-50">
-                      <span className="text-slate-500">Operating System</span>
-                      <span className="font-bold text-slate-800">Ubuntu 22.04+</span>
+                    <div className="flex justify-between items-center text-xs py-2 border-b border-slate-50">
+                      <span className="text-slate-500">TSDB Engine</span>
+                      <span className="font-bold text-slate-800">InfluxDB 3.0 IOx</span>
                     </div>
-                    <div className="flex justify-between items-center text-sm py-2 border-b border-slate-50">
-                      <span className="text-slate-500">Database Engine</span>
-                      <span className="font-bold text-slate-800">MongoDB 7.0</span>
+                    <div className="flex justify-between items-center text-xs py-2 border-b border-slate-50">
+                      <span className="text-slate-500">Visual Engine</span>
+                      <span className="font-bold text-orange-600">Grafana 10.x</span>
                     </div>
-                    <div className="flex justify-between items-center text-sm py-2 border-b border-slate-50">
-                      <span className="text-slate-500">Runtime Env</span>
-                      <span className="font-bold text-slate-800">Node.js 20.x</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm py-2 border-b border-slate-50">
-                      <span className="text-slate-500">OCPP Standard</span>
-                      <span className="font-bold text-slate-800">1.6J JSON</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm py-2">
-                      <span className="text-slate-500">AI Reasoning</span>
-                      <span className="font-bold text-blue-600">Gemini 3 Pro</span>
+                    <div className="flex justify-between items-center text-xs py-2 border-b border-slate-50">
+                      <span className="text-slate-500">Messaging</span>
+                      <span className="font-bold text-slate-800">OCPP 1.6J</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="bg-amber-50 rounded-3xl border border-amber-100 p-8">
-                  <h4 className="text-amber-800 font-bold mb-2 flex items-center gap-2">
-                    <Database size={18} /> Persistence
-                  </h4>
-                  <p className="text-amber-700 text-sm leading-relaxed font-medium">
-                    The app uses a local MongoDB instance. Ensure the <code>mongod</code> service is always running to prevent dashboard data loss.
+                  <div className="flex items-center gap-2 text-amber-800 font-bold mb-2">
+                    <Monitor size={18} />
+                    <span>Grafana Security</span>
+                  </div>
+                  <p className="text-amber-700 text-[11px] leading-relaxed font-medium">
+                    To embed Grafana dashboards, ensure <code>allow_embedding = true</code> is set in your <code>grafana.ini</code> configuration file.
                   </p>
                 </div>
               </div>
@@ -335,7 +308,7 @@ const App: React.FC = () => {
           </div>
         );
       default:
-        return <Dashboard chargers={chargers} transactions={transactions} liveEvents={liveEvents} language={language} />;
+        return <Dashboard chargers={chargers} transactions={transactions} liveEvents={liveEvents} language={language} grafanaConfig={grafanaConfig} />;
     }
   };
 

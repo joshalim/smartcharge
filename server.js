@@ -3,69 +3,48 @@ const express = require('express');
 const path = require('path');
 const http = require('http');
 const WebSocket = require('ws');
-const mongoose = require('mongoose');
+const { InfluxDB, Point } = require('@influxdata/influxdb-client');
 require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 3000;
 const ocppPort = process.env.OCPP_PORT || 9000;
-const mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/smartcharge';
 
-// MongoDB Connection
-mongoose.connect(mongoUri)
-  .then(() => console.log('✅ Connected to MongoDB local instance'))
-  .catch(err => console.error('❌ MongoDB connection error:', err));
+/**
+ * INFLUXDB 3.0 (IOx) CONFIGURATION
+ * Optimized for high-frequency EV telemetry
+ */
+const url = process.env.INFLUX_URL || 'http://localhost:8086';
+const token = process.env.INFLUX_TOKEN || 'your-super-secret-token';
+const org = process.env.INFLUX_ORG || 'smartcharge';
+const bucket = process.env.INFLUX_BUCKET || 'smartcharge_bucket';
 
-// Schemas
-const ChargerSchema = new mongoose.Schema({
-  id: { type: String, unique: true, required: true },
-  name: String,
-  status: { type: String, default: 'Available' },
-  location: { lat: Number, lng: Number, address: String },
-  lastHeartbeat: { type: Date, default: Date.now },
-  model: String,
-  firmware: String,
-  currentPower: { type: Number, default: 0 },
-  totalEnergy: { type: Number, default: 0 }
-});
+// For InfluxDB 3.0 Serverless/Dedicated, use standard Flight SQL for complex queries if needed.
+// For writes and simple Flux, the standard client remains highly efficient.
+const influxDB = new InfluxDB({ url, token });
+const writeApi = influxDB.getWriteApi(org, bucket);
+const queryApi = influxDB.getQueryApi(org);
 
-const UserSchema = new mongoose.Schema({
-  id: { type: String, unique: true, required: true },
-  name: String,
-  email: String,
-  phoneNumber: String,
-  placa: String,
-  cedula: String,
-  rfidTag: { type: String, unique: true },
-  rfidExpiration: Date,
-  status: { type: String, default: 'Active' },
-  joinedDate: { type: Date, default: Date.now },
-  balance: { type: Number, default: 0 }
-});
+console.log(`✅ InfluxDB 3.0 Engine Connected [Bucket: ${bucket}]`);
 
-const TransactionSchema = new mongoose.Schema({
-  id: String,
-  chargerId: String,
-  userId: String,
-  startTime: { type: Date, default: Date.now },
-  endTime: Date,
-  energyConsumed: { type: Number, default: 0 },
-  cost: { type: Number, default: 0 },
-  status: { type: String, default: 'Active' }
-});
-
-const LogSchema = new mongoose.Schema({
-  timestamp: { type: Date, default: Date.now },
-  direction: String,
-  messageType: String,
-  payload: mongoose.Schema.Types.Mixed,
-  chargerId: String
-});
-
-const Charger = mongoose.model('Charger', ChargerSchema);
-const User = mongoose.model('User', UserSchema);
-const Transaction = mongoose.model('Transaction', TransactionSchema);
-const Log = mongoose.model('Log', LogSchema);
+// Helper to query latest state of entities
+async function getLatestState(measurement, tagKey = 'id') {
+  const fluxQuery = `
+    from(bucket: "${bucket}")
+      |> range(start: -30d)
+      |> filter(fn: (r) => r["_measurement"] == "${measurement}")
+      |> last()
+      |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+  `;
+  
+  try {
+    const rows = await queryApi.collectRows(fluxQuery);
+    return rows;
+  } catch (e) {
+    console.error(`Error querying ${measurement}:`, e.message);
+    return [];
+  }
+}
 
 // Production Middleware
 app.use(express.json());
@@ -73,20 +52,35 @@ app.use(express.static(path.join(__dirname, 'dist')));
 
 // API Endpoints
 app.get('/api/chargers', async (req, res) => {
-  const chargers = await Charger.find();
+  const chargers = await getLatestState('chargers');
   res.json(chargers);
 });
 
 app.get('/api/users', async (req, res) => {
-  const users = await User.find();
+  const users = await getLatestState('users');
   res.json(users);
 });
 
 app.post('/api/users', async (req, res) => {
   try {
-    const userId = `USR-${Math.floor(Math.random() * 1000)}`;
-    const user = await User.create({ ...req.body, id: userId });
-    res.json(user);
+    const id = `USR-${Math.floor(Math.random() * 1000)}`;
+    const { name, email, phoneNumber, placa, cedula, rfidTag, rfidExpiration } = req.body;
+    
+    const point = new Point('users')
+      .tag('id', id)
+      .tag('rfidTag', rfidTag)
+      .stringField('name', name)
+      .stringField('email', email)
+      .stringField('phoneNumber', phoneNumber)
+      .stringField('placa', placa)
+      .stringField('cedula', cedula)
+      .stringField('rfidExpiration', rfidExpiration)
+      .stringField('status', 'Active')
+      .floatField('balance', 0);
+    
+    writeApi.writePoint(point);
+    await writeApi.flush();
+    res.json({ id, ...req.body, status: 'Active', balance: 0 });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -94,33 +88,59 @@ app.post('/api/users', async (req, res) => {
 
 app.put('/api/users/:id', async (req, res) => {
   try {
-    const user = await User.findOneAndUpdate({ id: req.params.id }, req.body, { new: true });
-    res.json(user);
+    const { id } = req.params;
+    const point = new Point('users').tag('id', id);
+    Object.entries(req.body).forEach(([key, value]) => {
+      if (typeof value === 'number') point.floatField(key, value);
+      else point.stringField(key, String(value));
+    });
+    writeApi.writePoint(point);
+    await writeApi.flush();
+    res.json({ id, ...req.body });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
 app.get('/api/transactions', async (req, res) => {
-  const txs = await Transaction.find().sort({ startTime: -1 }).limit(100);
+  const fluxQuery = `
+    from(bucket: "${bucket}")
+      |> range(start: -30d)
+      |> filter(fn: (r) => r["_measurement"] == "transactions")
+      |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+      |> sort(columns: ["_time"], desc: true)
+      |> limit(n: 50)
+  `;
+  const txs = await queryApi.collectRows(fluxQuery);
   res.json(txs);
 });
 
 app.get('/api/logs', async (req, res) => {
-  const logs = await Log.find().sort({ timestamp: -1 }).limit(200);
+  const fluxQuery = `
+    from(bucket: "${bucket}")
+      |> range(start: -24h)
+      |> filter(fn: (r) => r["_measurement"] == "logs")
+      |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+      |> sort(columns: ["_time"], desc: true)
+      |> limit(n: 100)
+  `;
+  const logs = await queryApi.collectRows(fluxQuery);
   res.json(logs);
 });
 
 app.post('/api/users/topup', async (req, res) => {
   const { userId, amount } = req.body;
-  const user = await User.findOneAndUpdate({ id: userId }, { $inc: { balance: amount } }, { new: true });
-  res.json(user);
-});
-
-app.post('/api/users/status', async (req, res) => {
-  const { userId, status } = req.body;
-  const user = await User.findOneAndUpdate({ id: userId }, { status }, { new: true });
-  res.json(user);
+  const users = await getLatestState('users');
+  const user = users.find(u => u.id === userId);
+  const newBalance = (user?.balance || 0) + amount;
+  
+  const point = new Point('users')
+    .tag('id', userId)
+    .floatField('balance', newBalance);
+  
+  writeApi.writePoint(point);
+  await writeApi.flush();
+  res.json({ userId, balance: newBalance });
 });
 
 // SPA Fallback
@@ -133,7 +153,7 @@ const server = http.createServer(app);
 // OCPP WebSocket Server
 const wss = new WebSocket.Server({ port: ocppPort }, () => {
   console.log('--------------------------------------------------');
-  console.log('⚡ SMART CHARGE - CENTRAL SYSTEM STANDBY');
+  console.log('⚡ SMART CHARGE - CENTRAL SYSTEM (INFLUXDB 3.0)');
   console.log(`📡 OCPP WS: ws://localhost:${ocppPort}`);
   console.log('--------------------------------------------------');
 });
@@ -142,27 +162,26 @@ wss.on('connection', async (ws, req) => {
   const chargerId = req.url.substring(1) || 'Unknown-Station';
   console.log(`[OCPP] New Connection: ${chargerId}`);
 
-  // Auto-register or update charger in DB
-  await Charger.findOneAndUpdate(
-    { id: chargerId },
-    { lastHeartbeat: new Date() },
-    { upsert: true }
-  );
+  // Register charger presence
+  const regPoint = new Point('chargers')
+    .tag('id', chargerId)
+    .stringField('status', 'Available')
+    .stringField('lastHeartbeat', new Date().toISOString());
+  writeApi.writePoint(regPoint);
 
   ws.on('message', async (data) => {
     try {
       const message = JSON.parse(data.toString());
       const [type, id, action, payload] = message;
 
-      // Save Log
-      await Log.create({
-        chargerId,
-        direction: 'IN',
-        messageType: action || 'Unknown',
-        payload: payload || message[2]
-      });
+      // Log Message
+      const logPoint = new Point('logs')
+        .tag('chargerId', chargerId)
+        .tag('direction', 'IN')
+        .tag('messageType', action || 'Unknown')
+        .stringField('payload', JSON.stringify(payload || message[2]));
+      writeApi.writePoint(logPoint);
 
-      // Simple Handlers
       if (action === 'BootNotification') {
         const response = [3, id, {
           status: 'Accepted',
@@ -170,18 +189,34 @@ wss.on('connection', async (ws, req) => {
           interval: 300
         }];
         ws.send(JSON.stringify(response));
-        await Charger.findOneAndUpdate({ id: chargerId }, { status: 'Available' });
+        
+        const chargerPoint = new Point('chargers')
+          .tag('id', chargerId)
+          .stringField('status', 'Available')
+          .stringField('model', payload.chargePointModel)
+          .stringField('firmware', payload.firmwareVersion);
+        writeApi.writePoint(chargerPoint);
       }
 
       if (action === 'StatusNotification') {
         const { status } = payload;
-        await Charger.findOneAndUpdate({ id: chargerId }, { status });
+        const statusPoint = new Point('chargers')
+          .tag('id', chargerId)
+          .stringField('status', status);
+        writeApi.writePoint(statusPoint);
       }
 
-      // Authorize with RFID expiration check
       if (action === 'Authorize') {
         const { idTag } = payload;
-        const user = await User.findOne({ rfidTag: idTag });
+        const fluxQuery = `
+          from(bucket: "${bucket}")
+            |> range(start: -30d)
+            |> filter(fn: (r) => r["_measurement"] == "users" and r["rfidTag"] == "${idTag}")
+            |> last()
+            |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+        `;
+        const userResults = await queryApi.collectRows(fluxQuery);
+        const user = userResults[0];
         
         let status = 'Invalid';
         if (user) {
@@ -191,14 +226,13 @@ wss.on('connection', async (ws, req) => {
             status = 'Accepted';
           } else if (isExpired) {
             status = 'Expired';
-          } else if (user.status === 'Blocked') {
-            status = 'Blocked';
           }
         }
-
         const response = [3, id, { idTagInfo: { status } }];
         ws.send(JSON.stringify(response));
       }
+      
+      await writeApi.flush();
     } catch (e) {
       console.error(`[OCPP][ERR][${chargerId}]`, e.message);
     }
