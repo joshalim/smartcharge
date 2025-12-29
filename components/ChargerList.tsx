@@ -2,7 +2,22 @@
 import React from 'react';
 import { Charger, ChargerStatus, Language, ConnectorPricing } from '../types';
 import { translations } from '../locales/translations';
-import { Power, Settings, RefreshCw, AlertTriangle, MapPin, Plus, X, Globe, Cpu, DollarSign, Save, Zap } from 'lucide-react';
+import { 
+  Power, 
+  Settings, 
+  RefreshCw, 
+  AlertTriangle, 
+  MapPin, 
+  Plus, 
+  X, 
+  Globe, 
+  Cpu, 
+  DollarSign, 
+  Save, 
+  Zap,
+  Trash2,
+  PlusCircle
+} from 'lucide-react';
 
 interface ChargerListProps {
   chargers: Charger[];
@@ -60,7 +75,7 @@ const ChargerList: React.FC<ChargerListProps> = ({ chargers, onRemoteAction, onA
       });
       if (response.ok) {
         setIsPricingModalOpen(false);
-        // In a real app, you'd trigger a data refresh here
+        // In a real app, you'd trigger a data refresh here via prop or context
         window.location.reload(); 
       }
     } catch (error) {
@@ -70,6 +85,21 @@ const ChargerList: React.FC<ChargerListProps> = ({ chargers, onRemoteAction, onA
 
   const updateConnectorPricing = (id: number, field: keyof ConnectorPricing, value: number) => {
     setConnectorPricing(prev => prev.map(cp => cp.connectorId === id ? { ...cp, [field]: value } : cp));
+  };
+
+  const removeConnectorPricing = (id: number) => {
+    setConnectorPricing(prev => prev.filter(cp => cp.connectorId !== id));
+  };
+
+  const addConnectorPricing = () => {
+    const nextId = connectorPricing.length > 0 
+      ? Math.max(...connectorPricing.map(c => c.connectorId)) + 1 
+      : 1;
+    
+    setConnectorPricing(prev => [
+      ...prev, 
+      { connectorId: nextId, pricePerKwh: 0, pricePerMinute: 0, status: ChargerStatus.AVAILABLE }
+    ]);
   };
 
   const getStatusStyles = (status: ChargerStatus) => {
@@ -182,8 +212,13 @@ const ChargerList: React.FC<ChargerListProps> = ({ chargers, onRemoteAction, onA
                   </button>
                   <button 
                     onClick={() => onRemoteAction(charger.id, 'reset')}
-                    className="p-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors shadow-sm active:scale-95"
-                    title={t.reset}
+                    className={`
+                      p-2.5 rounded-xl border transition-all shadow-sm active:scale-95
+                      ${isAnyFaulted 
+                        ? 'bg-red-600 border-red-600 text-white hover:bg-red-700 animate-pulse ring-4 ring-red-500/20' 
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'}
+                    `}
+                    title={isAnyFaulted ? "Try remote reset to clear fault" : t.reset}
                   >
                     <RefreshCw size={18} />
                   </button>
@@ -197,8 +232,8 @@ const ChargerList: React.FC<ChargerListProps> = ({ chargers, onRemoteAction, onA
       {/* Pricing Modal */}
       {isPricingModalOpen && selectedCharger && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-white/20">
-            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-emerald-50 to-white">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-white/20 flex flex-col max-h-[90vh]">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-emerald-50 to-white flex-shrink-0">
               <div>
                 <h3 className="text-2xl font-bold text-slate-900">{t.editPricing}</h3>
                 <p className="text-sm text-slate-500 mt-1">{selectedCharger.name} ({selectedCharger.id})</p>
@@ -207,11 +242,28 @@ const ChargerList: React.FC<ChargerListProps> = ({ chargers, onRemoteAction, onA
                 <X size={20} className="text-slate-400" />
               </button>
             </div>
-            <div className="p-8 space-y-6">
+            
+            <div className="p-8 space-y-6 overflow-y-auto flex-1">
+              {connectorPricing.length === 0 && (
+                <div className="text-center py-10 px-4 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50">
+                  <Cpu size={32} className="mx-auto text-slate-300 mb-3" />
+                  <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No connector configs defined</p>
+                </div>
+              )}
+              
               {connectorPricing.map((cp) => (
-                <div key={cp.connectorId} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
-                  <div className="flex items-center gap-2 font-bold text-slate-700">
-                    <Cpu size={16} className="text-blue-500" /> {t.connector} #{cp.connectorId}
+                <div key={cp.connectorId} className="group p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-4 relative">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-bold text-slate-700">
+                      <Cpu size={16} className="text-blue-500" /> {t.connector} #{cp.connectorId}
+                    </div>
+                    <button 
+                      onClick={() => removeConnectorPricing(cp.connectorId)}
+                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                      title="Remove Connector Config"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -222,7 +274,7 @@ const ChargerList: React.FC<ChargerListProps> = ({ chargers, onRemoteAction, onA
                           type="number"
                           className="w-full pl-7 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
                           value={cp.pricePerKwh}
-                          onChange={(e) => updateConnectorPricing(cp.connectorId, 'pricePerKwh', parseFloat(e.target.value))}
+                          onChange={(e) => updateConnectorPricing(cp.connectorId, 'pricePerKwh', parseFloat(e.target.value) || 0)}
                         />
                       </div>
                     </div>
@@ -234,16 +286,35 @@ const ChargerList: React.FC<ChargerListProps> = ({ chargers, onRemoteAction, onA
                           type="number"
                           className="w-full pl-7 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
                           value={cp.pricePerMinute}
-                          onChange={(e) => updateConnectorPricing(cp.connectorId, 'pricePerMinute', parseFloat(e.target.value))}
+                          onChange={(e) => updateConnectorPricing(cp.connectorId, 'pricePerMinute', parseFloat(e.target.value) || 0)}
                         />
                       </div>
                     </div>
                   </div>
                 </div>
               ))}
-              <div className="pt-4 flex gap-3">
-                <button onClick={() => setIsPricingModalOpen(false)} className="flex-1 px-4 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors">Cancel</button>
-                <button onClick={handleSavePricing} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20">
+
+              <button 
+                onClick={addConnectorPricing}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border-2 border-dashed border-slate-200 text-slate-500 font-bold text-sm hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/30 transition-all"
+              >
+                <PlusCircle size={18} />
+                Add Connector Configuration
+              </button>
+            </div>
+
+            <div className="p-8 border-t border-slate-100 bg-slate-50/50 flex-shrink-0">
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setIsPricingModalOpen(false)} 
+                  className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleSavePricing} 
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95"
+                >
                   <Save size={18} /> {t.savePricing}
                 </button>
               </div>

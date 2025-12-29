@@ -73,6 +73,37 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const handleRemoteAction = async (chargerId: string, action: string) => {
+    try {
+      const response = await fetch(`/api/chargers/${chargerId}/remote-action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      });
+
+      if (response.ok) {
+        setLiveEvents(prev => [{
+          id: Math.random().toString(),
+          timestamp: new Date().toISOString(),
+          type: 'success',
+          message: `Remote ${action} sent to ${chargerId}`
+        }, ...prev].slice(0, 15));
+        
+        // Optimistic refresh
+        fetchData();
+      } else {
+        setLiveEvents(prev => [{
+          id: Math.random().toString(),
+          timestamp: new Date().toISOString(),
+          type: 'error',
+          message: `Failed to send ${action} to ${chargerId}`
+        }, ...prev].slice(0, 15));
+      }
+    } catch (error) {
+      console.error("Remote action error:", error);
+    }
+  };
+
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
@@ -93,7 +124,7 @@ const App: React.FC = () => {
       case 'dashboard':
         return <Dashboard chargers={chargers} transactions={transactions} liveEvents={liveEvents} language={language} grafanaConfig={grafanaConfig} />;
       case 'chargers':
-        return <ChargerList chargers={chargers} onRemoteAction={() => {}} onAddCharger={() => {}} language={language} />;
+        return <ChargerList chargers={chargers} onRemoteAction={handleRemoteAction} onAddCharger={() => {}} language={language} />;
       case 'users':
         return <UserManagement users={users} onAddUser={() => {}} onEditUser={() => {}} onUpdateStatus={() => {}} onTopUp={() => {}} language={language} />;
       case 'transactions':

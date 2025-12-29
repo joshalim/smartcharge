@@ -46,7 +46,6 @@ app.use(express.static(path.join(__dirname, 'dist')));
 // API Endpoints
 app.get('/api/chargers', async (req, res) => {
   const chargers = await getLatestState('chargers');
-  // Enrich chargers with pricing data
   const pricingData = await getLatestState('charger_pricing', 'chargerId');
   
   const enriched = chargers.map(c => {
@@ -57,12 +56,43 @@ app.get('/api/chargers', async (req, res) => {
         connectorId: parseInt(p.connectorId),
         pricePerKwh: p.pricePerKwh,
         pricePerMinute: p.pricePerMinute,
-        status: c.status // Using global status for simplicity in mock/demo
+        status: c.status 
       })) : [{ connectorId: 1, pricePerKwh: 1000, pricePerMinute: 0, status: c.status }]
     };
   });
 
   res.json(enriched);
+});
+
+app.post('/api/chargers/:id/remote-action', async (req, res) => {
+  const { id } = req.params;
+  const { action } = req.body; // 'reset' or 'start'
+
+  try {
+    const logPoint = new Point('logs')
+      .tag('chargerId', id)
+      .tag('direction', 'OUT')
+      .tag('messageType', action === 'reset' ? 'Reset' : 'RemoteStartTransaction')
+      .stringField('payload', JSON.stringify({ 
+        type: action === 'reset' ? 'Soft' : 'Start',
+        timestamp: new Date().toISOString()
+      }));
+
+    // If it's a reset for a faulted charger, we simulate the state clearing
+    if (action === 'reset') {
+       const chargerPoint = new Point('chargers')
+         .tag('id', id)
+         .stringField('status', 'Available'); // Resetting clears fault in this demo
+       writeApi.writePoint(chargerPoint);
+    }
+
+    writeApi.writePoint(logPoint);
+    await writeApi.flush();
+    
+    res.json({ success: true, message: `Command ${action} sent to ${id}` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post('/api/chargers/:id/pricing', async (req, res) => {
@@ -113,17 +143,9 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
-/**
- * PAYMENT API INTEGRATION
- * This endpoint simulates a payment intent creation (e.g., Wompi, PayU, Stripe)
- */
 app.post('/api/payments/create-intent', async (req, res) => {
   const { userId, amount, method } = req.body;
-  
-  // Simulate calling external payment gateway API
   const paymentId = `PAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-  
-  // In a real scenario, you would return a public redirect URL or client secret
   res.json({
     success: true,
     paymentId,
@@ -134,30 +156,19 @@ app.post('/api/payments/create-intent', async (req, res) => {
   });
 });
 
-/**
- * VERIFY PAYMENT & TOP UP
- * Usually called by a webhook from the payment gateway
- */
 app.post('/api/payments/verify', async (req, res) => {
   const { userId, amount, paymentId, status } = req.body;
-  
   if (status !== 'approved') {
     return res.status(400).json({ success: false, message: 'Payment not approved' });
   }
-
   try {
     const users = await getLatestState('users');
     const user = users.find(u => u.id === userId);
     if (!user) throw new Error('User not found');
-
     const newBalance = (user.balance || 0) + amount;
-    
-    // Update user balance
     const userPoint = new Point('users')
       .tag('id', userId)
       .floatField('balance', newBalance);
-    
-    // Record payment transaction
     const txPoint = new Point('transactions')
       .tag('id', paymentId)
       .tag('userId', userId)
@@ -165,11 +176,9 @@ app.post('/api/payments/verify', async (req, res) => {
       .stringField('status', 'Completed')
       .floatField('amount', amount)
       .stringField('timestamp', new Date().toISOString());
-
     writeApi.writePoint(userPoint);
     writeApi.writePoint(txPoint);
     await writeApi.flush();
-
     res.json({ success: true, newBalance });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -202,14 +211,12 @@ app.get('/api/logs', async (req, res) => {
   res.json(logs);
 });
 
-// SPA Fallback
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 const server = http.createServer(app);
 
-// OCPP WebSocket Server
 const wss = new WebSocket.Server({ port: ocppPort }, () => {
   console.log('--------------------------------------------------');
   console.log('⚡ SMART CHARGE - CENTRAL SYSTEM (INFLUXDB 3.0)');
@@ -220,25 +227,21 @@ const wss = new WebSocket.Server({ port: ocppPort }, () => {
 wss.on('connection', async (ws, req) => {
   const chargerId = req.url.substring(1) || 'Unknown-Station';
   console.log(`[OCPP] New Connection: ${chargerId}`);
-
   const regPoint = new Point('chargers')
     .tag('id', chargerId)
     .stringField('status', 'Available')
     .stringField('lastHeartbeat', new Date().toISOString());
   writeApi.writePoint(regPoint);
-
   ws.on('message', async (data) => {
     try {
       const message = JSON.parse(data.toString());
       const [type, id, action, payload] = message;
-
       const logPoint = new Point('logs')
         .tag('chargerId', chargerId)
         .tag('direction', 'IN')
         .tag('messageType', action || 'Unknown')
         .stringField('payload', JSON.stringify(payload || message[2]));
       writeApi.writePoint(logPoint);
-
       if (action === 'BootNotification') {
         const response = [3, id, {
           status: 'Accepted',
@@ -246,7 +249,6 @@ wss.on('connection', async (ws, req) => {
           interval: 300
         }];
         ws.send(JSON.stringify(response));
-        
         const chargerPoint = new Point('chargers')
           .tag('id', chargerId)
           .stringField('status', 'Available')
@@ -254,7 +256,6 @@ wss.on('connection', async (ws, req) => {
           .stringField('firmware', payload.firmwareVersion);
         writeApi.writePoint(chargerPoint);
       }
-
       if (action === 'StatusNotification') {
         const { status } = payload;
         const statusPoint = new Point('chargers')
@@ -262,7 +263,6 @@ wss.on('connection', async (ws, req) => {
           .stringField('status', status);
         writeApi.writePoint(statusPoint);
       }
-
       if (action === 'Authorize') {
         const { idTag } = payload;
         const fluxQuery = `
@@ -274,7 +274,6 @@ wss.on('connection', async (ws, req) => {
         `;
         const userResults = await queryApi.collectRows(fluxQuery);
         const user = userResults[0];
-        
         let status = 'Invalid';
         if (user) {
           const now = new Date();
@@ -288,7 +287,6 @@ wss.on('connection', async (ws, req) => {
         const response = [3, id, { idTagInfo: { status } }];
         ws.send(JSON.stringify(response));
       }
-      
       await writeApi.flush();
     } catch (e) {
       console.error(`[OCPP][ERR][${chargerId}]`, e.message);
