@@ -4,9 +4,9 @@ import { Charger, ChargerStatus, Transaction, OCPPLog, User } from '../types';
 export const MOCK_CHARGERS: Charger[] = [
   {
     id: 'CP-001-ALPHA',
-    name: 'Main Entrance - Station A',
+    name: 'Entrada Principal - Estación A',
     status: ChargerStatus.CHARGING,
-    location: { lat: 40.7128, lng: -74.006, address: '123 Tech Way, NY' },
+    location: { lat: 4.6097, lng: -74.0817, address: 'Carrera 7 # 12-34, Bogotá' },
     lastHeartbeat: new Date().toISOString(),
     model: 'VoltCore 500',
     firmware: 'v2.4.1',
@@ -15,9 +15,9 @@ export const MOCK_CHARGERS: Charger[] = [
   },
   {
     id: 'CP-002-BETA',
-    name: 'Parking Level 2',
+    name: 'Parqueadero Nivel 2',
     status: ChargerStatus.AVAILABLE,
-    location: { lat: 40.7130, lng: -74.007, address: '123 Tech Way, NY' },
+    location: { lat: 4.6099, lng: -74.0820, address: 'Carrera 7 # 12-34, Bogotá' },
     lastHeartbeat: new Date().toISOString(),
     model: 'VoltCore 500',
     firmware: 'v2.4.1',
@@ -26,9 +26,9 @@ export const MOCK_CHARGERS: Charger[] = [
   },
   {
     id: 'CP-003-GAMMA',
-    name: 'Loading Bay West',
+    name: 'Muelle de Carga Oeste',
     status: ChargerStatus.FAULTED,
-    location: { lat: 40.7125, lng: -74.005, address: '123 Tech Way, NY' },
+    location: { lat: 4.6090, lng: -74.0810, address: 'Calle 100 # 15-22, Bogotá' },
     lastHeartbeat: new Date(Date.now() - 3600000).toISOString(),
     model: 'VoltCore Heavy Duty',
     firmware: 'v1.9.0',
@@ -37,9 +37,9 @@ export const MOCK_CHARGERS: Charger[] = [
   },
   {
     id: 'CP-004-DELTA',
-    name: 'Corporate Fleet Row',
+    name: 'Fila Flota Corporativa',
     status: ChargerStatus.CHARGING,
-    location: { lat: 40.7122, lng: -74.008, address: '123 Tech Way, NY' },
+    location: { lat: 6.2442, lng: -75.5812, address: 'El Poblado, Medellín' },
     lastHeartbeat: new Date().toISOString(),
     model: 'VoltCore 500',
     firmware: 'v2.4.1',
@@ -53,28 +53,37 @@ export const MOCK_USERS: User[] = [
     id: 'USR-882',
     name: 'Alex Rivera',
     email: 'alex.r@voltmail.com',
+    phoneNumber: '310 555 1234',
+    placa: 'GKF-452',
+    cedula: '1.020.344.551',
     rfidTag: 'RFID_A7B2991',
     status: 'Active',
     joinedDate: '2023-10-12',
-    balance: 45.50
+    balance: 180000.00
   },
   {
     id: 'USR-124',
     name: 'Sarah Chen',
     email: 's.chen@techcorp.io',
+    phoneNumber: '315 222 9988',
+    placa: 'LML-901',
+    cedula: '1.098.765.432',
     rfidTag: 'RFID_82CC104',
     status: 'Active',
     joinedDate: '2024-01-05',
-    balance: 12.20
+    balance: 48800.00
   },
   {
     id: 'USR-901',
     name: 'Marcus Thorne',
     email: 'm.thorne@fleet.com',
+    phoneNumber: '301 444 0000',
+    placa: 'AAA-001',
+    cedula: '80.123.456',
     rfidTag: 'RFID_F009D12',
     status: 'Blocked',
     joinedDate: '2023-11-20',
-    balance: -5.00
+    balance: -20000.00
   }
 ];
 
@@ -85,7 +94,7 @@ export const MOCK_TRANSACTIONS: Transaction[] = [
     userId: 'USR-882',
     startTime: new Date(Date.now() - 45 * 60000).toISOString(),
     energyConsumed: 18.5,
-    cost: 5.55,
+    cost: 22500,
     status: 'Active',
   },
   {
@@ -95,7 +104,7 @@ export const MOCK_TRANSACTIONS: Transaction[] = [
     startTime: new Date(Date.now() - 120 * 60000).toISOString(),
     endTime: new Date(Date.now() - 10 * 60000).toISOString(),
     energyConsumed: 45.2,
-    cost: 13.56,
+    cost: 54200,
     status: 'Completed',
   }
 ];

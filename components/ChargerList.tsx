@@ -1,16 +1,20 @@
 
 import React from 'react';
-import { Charger, ChargerStatus } from '../types';
+import { Charger, ChargerStatus, Language } from '../types';
+import { translations } from '../locales/translations';
 import { Power, Settings, RefreshCw, AlertTriangle, MapPin, Plus, X, Globe, Cpu } from 'lucide-react';
 
 interface ChargerListProps {
   chargers: Charger[];
   onRemoteAction: (id: string, action: string) => void;
   onAddCharger: (charger: Partial<Charger>) => void;
+  language: Language;
 }
 
-const ChargerList: React.FC<ChargerListProps> = ({ chargers, onRemoteAction, onAddCharger }) => {
+const ChargerList: React.FC<ChargerListProps> = ({ chargers, onRemoteAction, onAddCharger, language }) => {
   const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const t = translations[language];
+
   const [formData, setFormData] = React.useState({
     name: '',
     id: '',
@@ -39,21 +43,22 @@ const ChargerList: React.FC<ChargerListProps> = ({ chargers, onRemoteAction, onA
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h3 className="text-xl font-bold text-slate-800">Charging Infrastructure</h3>
+          <h3 className="text-xl font-bold text-slate-800">{t.chargers}</h3>
           <p className="text-sm text-slate-500">Manage and monitor all hardware endpoints.</p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
           className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 active:scale-95"
         >
-          <Plus size={20} /> Add New Charger
+          <Plus size={20} /> {t.addCharger}
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {chargers.map((charger) => {
           const isFaulted = charger.status === ChargerStatus.FAULTED;
-          const isCharging = charger.status === ChargerStatus.CHARGING;
+          const statusKey = charger.status.toLowerCase() as keyof typeof t;
+          const localizedStatus = (t as any)[statusKey] || charger.status;
 
           return (
             <div key={charger.id} className={`
@@ -72,7 +77,7 @@ const ChargerList: React.FC<ChargerListProps> = ({ chargers, onRemoteAction, onA
                   ${charger.status === ChargerStatus.FAULTED ? 'bg-red-100 text-red-700' : ''}
                   ${charger.status === ChargerStatus.FINISHING ? 'bg-amber-100 text-amber-700' : ''}
                 `}>
-                  {charger.status}
+                  {localizedStatus}
                 </span>
               </div>
 
@@ -86,11 +91,11 @@ const ChargerList: React.FC<ChargerListProps> = ({ chargers, onRemoteAction, onA
 
                 <div className="grid grid-cols-2 gap-4 py-4 border-y border-slate-50">
                   <div>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Hardware</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">{t.hardware}</p>
                     <p className="text-sm font-semibold text-slate-700">{charger.model}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Load</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">{t.currentLoad}</p>
                     <p className="text-sm font-semibold text-blue-600">{charger.currentPower} kW</p>
                   </div>
                 </div>
@@ -101,40 +106,29 @@ const ChargerList: React.FC<ChargerListProps> = ({ chargers, onRemoteAction, onA
                     disabled={charger.status !== ChargerStatus.AVAILABLE}
                     className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm active:scale-95"
                   >
-                    <Power size={16} /> Start
+                    <Power size={16} /> {t.remoteStart}
                   </button>
                   <button 
                     onClick={() => onRemoteAction(charger.id, 'reset')}
                     className="p-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors shadow-sm active:scale-95"
-                    title="Hard Reset"
+                    title={t.reset}
                   >
                     <RefreshCw size={18} />
                   </button>
                 </div>
-
-                {isFaulted && (
-                  <div className="mt-4 p-3 bg-red-50 rounded-xl flex items-start gap-3 border border-red-100 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <AlertTriangle size={18} className="text-red-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-bold text-red-800 uppercase tracking-tighter">System Error Detected</p>
-                      <p className="text-xs text-red-600 mt-0.5">Communication link lost. Check internal modem logs.</p>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* New Charger Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-white/20">
             <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-blue-50 to-white">
               <div>
-                <h3 className="text-2xl font-bold text-slate-900">Add Station</h3>
-                <p className="text-sm text-slate-500 mt-1">Onboard a new OCPP 1.6/2.0 charger.</p>
+                <h3 className="text-2xl font-bold text-slate-900">{t.addCharger}</h3>
+                <p className="text-sm text-slate-500 mt-1">Onboard a new OCPP station.</p>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
                 <X size={20} className="text-slate-400" />
@@ -148,7 +142,6 @@ const ChargerList: React.FC<ChargerListProps> = ({ chargers, onRemoteAction, onA
                   </label>
                   <input 
                     type="text" 
-                    placeholder="e.g. South Wing - Level 1"
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:outline-none focus:border-blue-500 transition-all"
                     value={formData.name}
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
@@ -157,47 +150,20 @@ const ChargerList: React.FC<ChargerListProps> = ({ chargers, onRemoteAction, onA
                 </div>
                 <div>
                   <label className="flex items-center gap-2 text-sm font-bold text-slate-700 mb-1.5">
-                    <X size={14} className="text-blue-500 rotate-45" /> OCPP Identity
+                    <MapPin size={14} className="text-blue-500" /> {t.address}
                   </label>
                   <input 
                     type="text" 
-                    placeholder="Enter ChargePoint ID (optional)"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:outline-none focus:border-blue-500 transition-all"
-                    value={formData.id}
-                    onChange={(e) => setFormData({...formData, id: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="flex items-center gap-2 text-sm font-bold text-slate-700 mb-1.5">
-                    <MapPin size={14} className="text-blue-500" /> Installation Address
-                  </label>
-                  <input 
-                    type="text" 
-                    placeholder="123 Energy Way..."
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:outline-none focus:border-blue-500 transition-all"
                     value={formData.address}
                     onChange={(e) => setFormData({...formData, address: e.target.value})}
                     required 
                   />
                 </div>
-                <div>
-                  <label className="flex items-center gap-2 text-sm font-bold text-slate-700 mb-1.5">
-                    <Cpu size={14} className="text-blue-500" /> Hardware Model
-                  </label>
-                  <select 
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:outline-none focus:border-blue-500 transition-all"
-                    value={formData.model}
-                    onChange={(e) => setFormData({...formData, model: e.target.value})}
-                  >
-                    <option>VoltCore 500</option>
-                    <option>VoltCore Heavy Duty</option>
-                    <option>Generic OCPP Wallbox</option>
-                  </select>
-                </div>
               </div>
               <div className="pt-6 flex gap-3">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors">Cancel</button>
-                <button type="submit" className="flex-1 px-4 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 active:scale-95">Register Station</button>
+                <button type="submit" className="flex-1 px-4 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20">Register</button>
               </div>
             </form>
           </div>

@@ -9,7 +9,8 @@ import {
   AreaChart, 
   Area 
 } from 'recharts';
-import { Charger, Transaction, ChargerStatus } from '../types';
+import { Charger, Transaction, ChargerStatus, Language } from '../types';
+import { translations } from '../locales/translations';
 import { 
   Zap, 
   Clock, 
@@ -26,11 +27,13 @@ interface DashboardProps {
   chargers: Charger[];
   transactions: Transaction[];
   liveEvents: LiveEvent[];
+  language: Language;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ chargers, transactions, liveEvents }) => {
+const Dashboard: React.FC<DashboardProps> = ({ chargers, transactions, liveEvents, language }) => {
+  const t = translations[language];
   const activeChargers = chargers.filter(c => c.status === ChargerStatus.CHARGING).length;
-  const totalRevenue = transactions.reduce((acc, t) => acc + t.cost, 0);
+  const totalRevenue = transactions.reduce((acc, tr) => acc + tr.cost, 0);
   const totalEnergy = chargers.reduce((acc, c) => acc + c.totalEnergy, 0);
   const currentLoad = chargers.reduce((acc, c) => acc + c.currentPower, 0);
 
@@ -41,7 +44,7 @@ const Dashboard: React.FC<DashboardProps> = ({ chargers, transactions, liveEvent
     { time: '16:00', value: 620 },
     { time: '18:00', value: 580 },
     { time: '20:00', value: 310 },
-    { time: 'NOW', value: Math.round(currentLoad * 10) }, // Scaled for chart visual
+    { time: 'NOW', value: Math.round(currentLoad * 10) },
   ];
 
   const StatCard = ({ title, value, icon: Icon, color, trend, sub }: any) => (
@@ -72,7 +75,7 @@ const Dashboard: React.FC<DashboardProps> = ({ chargers, transactions, liveEvent
     <div className="space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
-          title="Active Sessions" 
+          title={t.activeSessions} 
           value={activeChargers} 
           icon={BatteryCharging} 
           color="bg-blue-600"
@@ -80,7 +83,7 @@ const Dashboard: React.FC<DashboardProps> = ({ chargers, transactions, liveEvent
           sub="Live monitoring active"
         />
         <StatCard 
-          title="Network Total Energy" 
+          title={t.totalEnergy} 
           value={`${totalEnergy.toFixed(1)} kWh`} 
           icon={Zap} 
           color="bg-amber-500"
@@ -88,15 +91,15 @@ const Dashboard: React.FC<DashboardProps> = ({ chargers, transactions, liveEvent
           sub="Updated 3s ago"
         />
         <StatCard 
-          title="Current Network Load" 
+          title={t.currentLoad} 
           value={`${currentLoad.toFixed(2)} kW`} 
           icon={Activity} 
           color="bg-indigo-600"
           sub="Aggregate peak output"
         />
         <StatCard 
-          title="Daily Revenue" 
-          value={`$${totalRevenue.toFixed(2)}`} 
+          title={t.dailyRevenue} 
+          value={`${t.currencySymbol}${totalRevenue.toLocaleString()}`} 
           icon={DollarSign} 
           color="bg-emerald-600"
           trend="+8.2%" 
@@ -108,11 +111,11 @@ const Dashboard: React.FC<DashboardProps> = ({ chargers, transactions, liveEvent
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <Activity className="text-blue-500" size={20} />
-              Real-time Power Distribution (kW)
+              {t.currentLoad} Distribution (kW)
             </h3>
             <span className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">
                <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-ping"></span>
-               LIVE TELEMETRY
+               {t.liveTelemetry}
             </span>
           </div>
           <div className="h-[300px]">
@@ -134,17 +137,16 @@ const Dashboard: React.FC<DashboardProps> = ({ chargers, transactions, liveEvent
           </div>
         </div>
 
-        {/* Live Events Feed */}
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col h-full">
           <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
             <Activity className="text-slate-400" size={20} />
-            Live Event Stream
+            {t.liveEventStream}
           </h3>
           <div className="flex-1 overflow-auto space-y-4 pr-2">
             {liveEvents.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-60">
                 <Clock size={32} className="mb-2" />
-                <p className="text-sm">Waiting for events...</p>
+                <p className="text-sm">{t.waitingEvents}</p>
               </div>
             ) : (
               liveEvents.map((event) => (
@@ -170,20 +172,24 @@ const Dashboard: React.FC<DashboardProps> = ({ chargers, transactions, liveEvent
       </div>
 
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-        <h3 className="text-lg font-semibold mb-4">Active Monitoring Grid</h3>
+        <h3 className="text-lg font-semibold mb-4">{t.monitoringGrid}</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="pb-4 font-semibold text-slate-600">Station ID</th>
-                <th className="pb-4 font-semibold text-slate-600">Current Load</th>
-                <th className="pb-4 font-semibold text-slate-600">Energy (Session)</th>
-                <th className="pb-4 font-semibold text-slate-600">Heartbeat</th>
-                <th className="pb-4 font-semibold text-slate-600">Status</th>
+                <th className="pb-4 font-semibold text-slate-600">{t.stationId}</th>
+                <th className="pb-4 font-semibold text-slate-600">{t.currentLoad}</th>
+                <th className="pb-4 font-semibold text-slate-600">{t.totalEnergy}</th>
+                <th className="pb-4 font-semibold text-slate-600">{t.heartbeat}</th>
+                <th className="pb-4 font-semibold text-slate-600">{t.status}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {chargers.map((charger) => (
+              {chargers.map((charger) => {
+                const statusKey = charger.status.toLowerCase() as keyof typeof t;
+                const localizedStatus = (t as any)[statusKey] || charger.status;
+
+                return (
                 <tr key={charger.id} className="group hover:bg-slate-50 transition-colors">
                   <td className="py-4">
                     <div className="flex items-center gap-3">
@@ -201,11 +207,11 @@ const Dashboard: React.FC<DashboardProps> = ({ chargers, transactions, liveEvent
                         charger.status === ChargerStatus.CHARGING ? 'bg-blue-100 text-blue-700' : 
                         'bg-red-100 text-red-700'}
                     `}>
-                      {charger.status}
+                      {localizedStatus}
                     </span>
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         </div>

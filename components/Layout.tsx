@@ -1,6 +1,7 @@
 
 import React from 'react';
-import { ViewType } from '../types';
+import { ViewType, Language } from '../types';
+import { translations } from '../locales/translations';
 import { 
   LayoutDashboard, 
   Zap, 
@@ -11,31 +12,33 @@ import {
   Users,
   Menu,
   X,
-  BatteryCharging
+  Languages
 } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
   activeView: ViewType;
   setActiveView: (view: ViewType) => void;
+  language: Language;
+  setLanguage: (lang: Language) => void;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, language, setLanguage }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
+  const t = translations[language];
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'chargers', label: 'Chargers', icon: Zap },
-    { id: 'users', label: 'Users & RFID', icon: Users },
-    { id: 'transactions', label: 'Transactions', icon: History },
-    { id: 'logs', label: 'OCPP Logs', icon: Terminal },
-    { id: 'ai-insights', label: 'AI Analyst', icon: BrainCircuit },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard },
+    { id: 'chargers', label: t.chargers, icon: Zap },
+    { id: 'users', label: t.users, icon: Users },
+    { id: 'transactions', label: t.transactions, icon: History },
+    { id: 'logs', label: t.logs, icon: Terminal },
+    { id: 'ai-insights', label: t.aiInsights, icon: BrainCircuit },
+    { id: 'settings', label: t.settings, icon: Settings },
   ];
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
-      {/* Sidebar */}
       <aside className={`
         ${isSidebarOpen ? 'w-64' : 'w-20'} 
         bg-slate-900 text-white transition-all duration-300 flex flex-col h-full border-r border-slate-800
@@ -44,7 +47,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView }) 
           {isSidebarOpen ? (
             <div className="flex items-center gap-3 overflow-hidden">
               <div className="flex-shrink-0 relative">
-                {/* Custom Logo approximation from image */}
                 <div className="w-10 h-10 border-2 border-green-500 rounded-lg flex items-center justify-center relative">
                   <Zap size={18} className="text-green-500 fill-green-500" />
                   <div className="absolute -bottom-1 -right-1 w-3 h-4 bg-green-500 rounded-sm"></div>
@@ -95,18 +97,31 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView }) 
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-auto relative">
         <header className="h-16 bg-white border-b border-slate-200 flex items-center px-8 justify-between sticky top-0 z-10">
           <div className="flex items-center gap-4">
              <h2 className="text-lg font-semibold text-slate-800 capitalize">
-               {activeView.replace('-', ' ')}
+               {navItems.find(n => n.id === activeView)?.label || activeView}
              </h2>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center bg-slate-100 rounded-lg p-1 border border-slate-200">
+              <button 
+                onClick={() => setLanguage('en')}
+                className={`px-3 py-1 rounded text-xs font-bold transition-all ${language === 'en' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                EN
+              </button>
+              <button 
+                onClick={() => setLanguage('es')}
+                className={`px-3 py-1 rounded text-xs font-bold transition-all ${language === 'es' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                ES
+              </button>
+            </div>
             <div className="flex items-center gap-2 text-sm text-slate-500 font-medium bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
-               OCPP Server Online
+               {t.serverOnline}
             </div>
             <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center font-bold text-blue-600">
                JD

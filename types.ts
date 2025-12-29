@@ -8,6 +8,8 @@ export enum ChargerStatus {
   PREPARING = 'Preparing'
 }
 
+export type Language = 'en' | 'es';
+
 export interface Charger {
   id: string;
   name: string;
@@ -28,6 +30,9 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  phoneNumber: string;
+  placa: string;
+  cedula: string;
   rfidTag: string;
   status: 'Active' | 'Blocked';
   joinedDate: string;
