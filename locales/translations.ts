@@ -77,7 +77,19 @@ export const translations = {
     tsdbBucket: "TSDB Bucket",
     paymentGateway: "Payment Gateway",
     gatewayKey: "Public API Key",
-    gatewaySecret: "Secret Token"
+    gatewaySecret: "Secret Token",
+    pricing: "Pricing",
+    editPricing: "Edit Pricing",
+    pricePerKwh: "Price per kWh",
+    pricePerMinute: "Price per Minute",
+    connector: "Connector",
+    savePricing: "Save Pricing Configuration",
+    startTime: "Start Time",
+    endTime: "End Time",
+    energyConsumed: "Energy (kWh)",
+    cost: "Cost",
+    user: "User",
+    txId: "TX ID"
   },
   es: {
     dashboard: "Centro de Comando",
@@ -156,6 +168,18 @@ export const translations = {
     tsdbBucket: "Cubo TSDB",
     paymentGateway: "Pasarela de Pagos",
     gatewayKey: "Llave Pública API",
-    gatewaySecret: "Token Secreto"
+    gatewaySecret: "Token Secreto",
+    pricing: "Tarifas",
+    editPricing: "Editar Tarifas",
+    pricePerKwh: "Precio por kWh",
+    pricePerMinute: "Precio por Minuto",
+    connector: "Conector",
+    savePricing: "Guardar Configuración de Tarifas",
+    startTime: "Hora Inicio",
+    endTime: "Hora Fin",
+    energyConsumed: "Energía (kWh)",
+    cost: "Costo",
+    user: "Usuario",
+    txId: "ID TX"
   }
 };

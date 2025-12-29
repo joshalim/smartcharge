@@ -6,6 +6,7 @@ import ChargerList from './components/ChargerList';
 import UserManagement from './components/UserManagement';
 import OCPPLogs from './components/OCPPLogs';
 import AIAnalyst from './components/AIAnalyst';
+import Transactions from './components/Transactions';
 import { ViewType, Charger, Transaction, OCPPLog, ChargerStatus, User, Language, GrafanaConfig } from './types';
 import { translations } from './locales/translations';
 import { 
@@ -95,6 +96,8 @@ const App: React.FC = () => {
         return <ChargerList chargers={chargers} onRemoteAction={() => {}} onAddCharger={() => {}} language={language} />;
       case 'users':
         return <UserManagement users={users} onAddUser={() => {}} onEditUser={() => {}} onUpdateStatus={() => {}} onTopUp={() => {}} language={language} />;
+      case 'transactions':
+        return <Transactions transactions={transactions} language={language} />;
       case 'logs':
         return <OCPPLogs logs={logs} />;
       case 'ai-insights':

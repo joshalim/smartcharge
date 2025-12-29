@@ -12,6 +12,9 @@ export const MOCK_CHARGERS: Charger[] = [
     firmware: 'v2.4.1',
     currentPower: 22.5,
     totalEnergy: 1250.4,
+    connectors: [
+      { connectorId: 1, pricePerKwh: 1200, pricePerMinute: 50, status: ChargerStatus.CHARGING }
+    ]
   },
   {
     id: 'CP-002-BETA',
@@ -23,6 +26,9 @@ export const MOCK_CHARGERS: Charger[] = [
     firmware: 'v2.4.1',
     currentPower: 0,
     totalEnergy: 840.2,
+    connectors: [
+      { connectorId: 1, pricePerKwh: 1100, pricePerMinute: 45, status: ChargerStatus.AVAILABLE }
+    ]
   },
   {
     id: 'CP-003-GAMMA',
@@ -34,6 +40,9 @@ export const MOCK_CHARGERS: Charger[] = [
     firmware: 'v1.9.0',
     currentPower: 0,
     totalEnergy: 4500.8,
+    connectors: [
+      { connectorId: 1, pricePerKwh: 1500, pricePerMinute: 100, status: ChargerStatus.FAULTED }
+    ]
   },
   {
     id: 'CP-004-DELTA',
@@ -45,6 +54,9 @@ export const MOCK_CHARGERS: Charger[] = [
     firmware: 'v2.4.1',
     currentPower: 11.2,
     totalEnergy: 112.5,
+    connectors: [
+      { connectorId: 1, pricePerKwh: 900, pricePerMinute: 30, status: ChargerStatus.CHARGING }
+    ]
   },
 ];
 
@@ -57,7 +69,6 @@ export const MOCK_USERS: User[] = [
     placa: 'GKF-452',
     cedula: '1.020.344.551',
     rfidTag: 'RFID_A7B2991',
-    // Fix: Added missing rfidExpiration property as required by User type
     rfidExpiration: '2025-12-31T23:59:59Z',
     status: 'Active',
     joinedDate: '2023-10-12',
@@ -71,7 +82,6 @@ export const MOCK_USERS: User[] = [
     placa: 'LML-901',
     cedula: '1.098.765.432',
     rfidTag: 'RFID_82CC104',
-    // Fix: Added missing rfidExpiration property as required by User type
     rfidExpiration: '2026-01-01T00:00:00Z',
     status: 'Active',
     joinedDate: '2024-01-05',
@@ -85,7 +95,6 @@ export const MOCK_USERS: User[] = [
     placa: 'AAA-001',
     cedula: '80.123.456',
     rfidTag: 'RFID_F009D12',
-    // Fix: Added missing rfidExpiration property as required by User type
     rfidExpiration: '2024-05-20T23:59:59Z',
     status: 'Blocked',
     joinedDate: '2023-11-20',

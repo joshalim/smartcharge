@@ -17,6 +17,13 @@ export interface GrafanaConfig {
   theme: 'light' | 'dark';
 }
 
+export interface ConnectorPricing {
+  connectorId: number;
+  pricePerKwh: number;
+  pricePerMinute: number;
+  status: ChargerStatus;
+}
+
 export interface Charger {
   id: string;
   name: string;
@@ -31,6 +38,7 @@ export interface Charger {
   firmware: string;
   currentPower: number; // in kW
   totalEnergy: number; // in kWh
+  connectors: ConnectorPricing[];
 }
 
 export interface User {

@@ -46,7 +46,43 @@ app.use(express.static(path.join(__dirname, 'dist')));
 // API Endpoints
 app.get('/api/chargers', async (req, res) => {
   const chargers = await getLatestState('chargers');
-  res.json(chargers);
+  // Enrich chargers with pricing data
+  const pricingData = await getLatestState('charger_pricing', 'chargerId');
+  
+  const enriched = chargers.map(c => {
+    const pricing = pricingData.filter(p => p.chargerId === c.id);
+    return {
+      ...c,
+      connectors: pricing.length > 0 ? pricing.map(p => ({
+        connectorId: parseInt(p.connectorId),
+        pricePerKwh: p.pricePerKwh,
+        pricePerMinute: p.pricePerMinute,
+        status: c.status // Using global status for simplicity in mock/demo
+      })) : [{ connectorId: 1, pricePerKwh: 1000, pricePerMinute: 0, status: c.status }]
+    };
+  });
+
+  res.json(enriched);
+});
+
+app.post('/api/chargers/:id/pricing', async (req, res) => {
+  const { id } = req.params;
+  const { connectors } = req.body;
+
+  try {
+    for (const conn of connectors) {
+      const point = new Point('charger_pricing')
+        .tag('chargerId', id)
+        .tag('connectorId', conn.connectorId.toString())
+        .floatField('pricePerKwh', conn.pricePerKwh)
+        .floatField('pricePerMinute', conn.pricePerMinute);
+      writeApi.writePoint(point);
+    }
+    await writeApi.flush();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/api/users', async (req, res) => {
