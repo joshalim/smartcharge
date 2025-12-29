@@ -1,3 +1,4 @@
+
 # SMART Charge - Local Server Installation
 
 This guide details how to install and configure the SMART Charge OCPP Central System on a fresh Ubuntu Linux server.
@@ -34,9 +35,9 @@ server {
     listen 80;
     server_name your-domain-or-ip.com;
 
-    # Frontend Dashboard & API
+    # Frontend Dashboard & API (Moved to 3080 to avoid Grafana conflict)
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://localhost:3080;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -68,7 +69,7 @@ sudo systemctl restart nginx
 1. Clone your repository to `/var/www/smartcharge`.
 2. Create `.env`:
 ```env
-PORT=3000
+PORT=3080
 OCPP_PORT=9000
 INFLUX_URL=http://localhost:8086
 INFLUX_TOKEN=PASTE_YOUR_INFLUX_TOKEN

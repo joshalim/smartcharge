@@ -13,7 +13,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const port = process.env.PORT || 3000;
+// Port moved to 3080 to avoid conflict with Grafana (3000)
+const port = process.env.PORT || 3080;
 const ocppPort = process.env.OCPP_PORT || 9000;
 
 /**
@@ -58,7 +59,6 @@ async function getLatestState(measurement) {
  */
 app.use(express.json());
 
-// Serve static files from the 'dist' directory created by 'npm run build'
 const distPath = path.join(__dirname, 'dist');
 app.use(express.static(distPath));
 
