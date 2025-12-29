@@ -1,20 +1,16 @@
-# SMART Charge - Industrial OCPP Central System
+# SMART Charge - Production Deployment Guide
 
-A robust, high-performance EV charging management system (CMS) optimized for Ubuntu Server. This system uses **InfluxDB 3.0 (IOx)** architecture for telemetry and **Grafana** for professional-grade visualization.
+This guide provides the exact commands needed to host the OCPP Central System and Dashboard on a standard Ubuntu Linux server.
 
----
-
-## 🛠️ Full Installation Workflow
-
-### 1. Automated System Setup
-Download the provided `setup.sh` and run it to prepare your Ubuntu environment:
+## 🏗️ 1. Initial Server Setup
+Upload the `setup.sh` script to your server and run:
 ```bash
 chmod +x setup.sh
-./setup.sh
+sudo ./setup.sh
 ```
 
-### 2. InfluxDB Initialization
-You must set up your initial organization and bucket. InfluxDB 3.0 API is fully compatible with the v2 CLI:
+## 🗄️ 2. Database Initialization
+Once InfluxDB is installed, run the setup wizard to generate your token:
 ```bash
 influx setup \
   --org smartcharge \
@@ -24,18 +20,12 @@ influx setup \
   --token YOUR_PERMANENT_TOKEN \
   --force
 ```
-*Save the **Token** for your `.env` file.*
 
-### 3. Configure Grafana (Embedding)
-The dashboard UI embeds Grafana via iframe. You must allow this in the config:
-1. `sudo nano /etc/grafana/grafana.ini`
-2. Change `;allow_embedding = false` to `allow_embedding = true`.
-3. Restart: `sudo systemctl restart grafana-server`.
-
-### 4. Nginx Reverse Proxy (OCPP + UI)
-To run on port 80 and handle OCPP WebSockets securely:
+## 🌐 3. Nginx Reverse Proxy (Critical for OCPP)
+Create a new site configuration:
 `sudo nano /etc/nginx/sites-available/smartcharge`
 
+Paste the following configuration (replace `your-domain.com` with your IP or Domain):
 ```nginx
 server {
     listen 80;
@@ -48,6 +38,12 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # API Routes
+    location /api/ {
+        proxy_pass http://localhost:3000/api/;
     }
 
     # OCPP 1.6J WebSocket (Chargers connect to ws://your-domain.com/ocpp)
@@ -57,37 +53,55 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
     }
 }
 ```
-`sudo ln -s /etc/nginx/sites-available/smartcharge /etc/nginx/sites-enabled/`
-`sudo systemctl restart nginx`
+Enable the site:
+```bash
+sudo ln -s /etc/nginx/sites-available/smartcharge /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+```
 
-### 5. Application Launch
+## 🔒 4. SSL / HTTPS (Recommended)
+Use Certbot to secure your dashboard and provide `wss://` for chargers:
+```bash
+sudo apt install certbot python3-certbot-nginx -y
+sudo certbot --nginx -d your-domain.com
+```
+
+## ⚙️ 5. Environment Configuration
+Create a `.env` file in the root of the project:
+```env
+PORT=3000
+OCPP_PORT=9000
+INFLUX_URL=http://localhost:8086
+INFLUX_TOKEN=PASTE_YOUR_TOKEN_HERE
+INFLUX_ORG=smartcharge
+INFLUX_BUCKET=smartcharge_bucket
+API_KEY=YOUR_GEMINI_API_KEY
+```
+
+## 🚀 6. Launch Application
 ```bash
 npm install
 npm run build
 pm2 start server.js --name "smart-charge"
 pm2 save
+pm2 startup
 ```
+
+## 📊 7. Grafana Data Source
+1. Login to Grafana at `http://YOUR_IP:3000` (Default: admin/admin).
+2. Go to **Connections > Data Sources > Add data source**.
+3. Select **InfluxDB**.
+4. Query Language: **Flux**.
+5. URL: `http://localhost:8086`.
+6. Organization: `smartcharge`.
+7. Token: `YOUR_TOKEN`.
+8. Default Bucket: `smartcharge_bucket`.
 
 ---
-
-## 🛡️ Firewall (UFW)
-Open the required ports:
-```bash
-sudo ufw allow 80/tcp    # HTTP (Nginx)
-sudo ufw allow 9000/tcp  # OCPP Direct (if not using Nginx)
-sudo ufw allow 3000/tcp  # Dashboard Direct (if not using Nginx)
-```
-
-## 🧠 AI Analyst
-The system uses **Gemini 3 Pro** via `@google/genai`. 
-- Ensure `process.env.API_KEY` is set in your `.env`.
-- The AI analyzes raw OCPP logs stored in InfluxDB to predict component failure.
-
-## 💳 Payment Gateway
-Supports Nequi, PayPal, and Bre-B. Configuration is available in the **Settings** tab of the dashboard.
-
-## License
-MIT
+**Note:** Ensure your hardware chargers point to `ws://YOUR_SERVER_IP/ocpp/[ChargerID]` or `wss://your-domain.com/ocpp/[ChargerID]`.
