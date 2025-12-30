@@ -57,21 +57,33 @@ const App: React.FC = () => {
   // Global Theme Injection
   useEffect(() => {
     const config = THEME_CONFIG[settings.theme || 'slate'];
-    const root = document.documentElement;
-    root.style.setProperty('--brand-primary', config.primary);
-    root.style.setProperty('--brand-hover', config.hover);
+    const styleId = 'theme-variables-injector';
+    let styleTag = document.getElementById(styleId) as HTMLStyleElement;
     
-    const style = document.createElement('style');
-    style.id = 'theme-variables';
-    style.innerHTML = `
-      .bg-brand { background-color: ${config.primary} !important; }
-      .text-brand { color: ${config.primary} !important; }
-      .border-brand { border-color: ${config.primary} !important; }
+    if (!styleTag) {
+      styleTag = document.createElement('style');
+      styleTag.id = styleId;
+      document.head.appendChild(styleTag);
+    }
+
+    styleTag.innerHTML = `
+      :root {
+        --brand-primary: ${config.primary};
+        --brand-hover: ${config.hover};
+        --brand-bg: ${config.bg};
+      }
+      .bg-brand { background-color: var(--brand-primary) !important; }
+      .bg-brand-hover:hover { background-color: var(--brand-hover) !important; }
+      .text-brand { color: var(--brand-primary) !important; }
+      .border-brand { border-color: var(--brand-primary) !important; }
       .shadow-brand { box-shadow: 0 10px 15px -3px ${config.primary}33 !important; }
+      .ring-brand:focus { --tw-ring-color: var(--brand-primary) !important; }
+      
+      /* Target specific UI elements that should follow theme */
+      .nav-active { background-color: var(--brand-primary) !important; box-shadow: 0 10px 15px -3px ${config.primary}44 !important; }
+      .btn-primary { background-color: var(--brand-primary) !important; }
+      .btn-primary:hover { background-color: var(--brand-hover) !important; }
     `;
-    const oldStyle = document.getElementById('theme-variables');
-    if (oldStyle) oldStyle.remove();
-    document.head.appendChild(style);
   }, [settings.theme]);
 
   const fetchData = async () => {
@@ -169,21 +181,21 @@ const App: React.FC = () => {
     } catch (e) { addEvent('error', 'Failed to add user.'); }
   };
 
-  const handleBulkAddUsers = async (usersToImport: Partial<User>[]) => {
+  const handleDeleteUser = async (id: string) => {
     try {
-      const res = await fetch('/api/users/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(usersToImport) });
+      const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
       if (res.ok) {
-        addEvent('success', `${usersToImport.length} users imported successfully.`);
+        addEvent('success', `User removed from database.`);
         fetchData();
       }
-    } catch (e) { addEvent('error', 'Failed to import users.'); }
+    } catch (e) { addEvent('error', 'Failed to delete user.'); }
   };
 
   const handleEditUser = async (id: string, updates: Partial<User>) => {
     try {
       const res = await fetch(`/api/users/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) });
       if (res.ok) {
-        addEvent('success', `User profile ${id} updated.`);
+        addEvent('success', `User profile updated.`);
         fetchData();
       }
     } catch (e) { addEvent('error', 'Failed to update user.'); }
@@ -215,7 +227,7 @@ const App: React.FC = () => {
         <div className="bg-white p-8 rounded-3xl shadow-xl border border-red-100 max-w-md text-center">
           <AlertCircle size={32} className="text-red-600 mx-auto mb-6" />
           <h2 className="text-xl font-bold mb-2">Conexión Fallida</h2>
-          <button onClick={fetchData} className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 text-white font-bold rounded-xl"><RefreshCw size={18} /> Reintentar</button>
+          <button onClick={fetchData} className="w-full flex items-center justify-center gap-2 py-3 bg-brand text-white font-bold rounded-xl shadow-brand"><RefreshCw size={18} /> Reintentar</button>
         </div>
       </div>
     );
@@ -229,6 +241,10 @@ const App: React.FC = () => {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) {
+        if (file.size > 5 * 1024 * 1024) {
+          addEvent('error', 'Image size must be less than 5MB');
+          return;
+        }
         const reader = new FileReader();
         reader.onloadend = () => {
           setLogoFile(reader.result as string);
@@ -259,7 +275,7 @@ const App: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <section className="bg-white rounded-[40px] p-10 border border-slate-200 shadow-sm space-y-8">
             <div className="flex items-center gap-4">
-              <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl">
+              <div className="p-4 bg-brand/10 text-brand rounded-2xl">
                 <ImageIcon size={28} />
               </div>
               <div>
@@ -284,14 +300,14 @@ const App: React.FC = () => {
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4">
-                <label className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-slate-900 text-white font-black rounded-3xl cursor-pointer hover:bg-slate-800 transition-all">
+                <label className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-slate-900 text-white font-black rounded-3xl cursor-pointer hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10">
                   <Upload size={20} /> Choose Image
                   <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
                 </label>
                 <button 
                   onClick={saveBranding}
                   disabled={isSaving || logoFile === settings.customLogo}
-                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 text-white font-black rounded-3xl shadow-xl shadow-blue-600/20 transition-all disabled:opacity-50 ${saveStatus === 'success' ? 'bg-emerald-500 shadow-emerald-500/20' : ''}`}
+                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-brand text-white font-black rounded-3xl shadow-brand transition-all disabled:opacity-50 ${saveStatus === 'success' ? 'bg-emerald-500 shadow-emerald-500/20' : ''}`}
                 >
                   {isSaving ? <RefreshCw className="animate-spin" /> : saveStatus === 'success' ? <Check size={20} /> : <Save size={20} />}
                   {saveStatus === 'success' ? 'Success!' : 'Apply Logo'}
@@ -302,7 +318,7 @@ const App: React.FC = () => {
 
           <section className="bg-white rounded-[40px] p-10 border border-slate-200 shadow-sm space-y-8">
             <div className="flex items-center gap-4">
-              <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl">
+              <div className="p-4 bg-brand/10 text-brand rounded-2xl">
                 <Palette size={28} />
               </div>
               <div>
@@ -316,12 +332,12 @@ const App: React.FC = () => {
                 <button
                   key={tId}
                   onClick={() => handleUpdateSettings({ theme: tId })}
-                  className={`p-6 rounded-[32px] border-2 transition-all flex flex-col items-center gap-4 ${settings.theme === tId ? 'border-blue-600 bg-blue-50' : 'border-slate-100 bg-slate-50/30 hover:border-slate-200'}`}
+                  className={`p-6 rounded-[32px] border-2 transition-all flex flex-col items-center gap-4 ${settings.theme === tId ? 'border-brand bg-brand/5' : 'border-slate-100 bg-slate-50/30 hover:border-slate-200'}`}
                 >
                   <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white" style={{ backgroundColor: THEME_CONFIG[tId].primary }}>
                     {settings.theme === tId && <Check size={24} />}
                   </div>
-                  <span className={`text-xs font-black uppercase tracking-widest ${settings.theme === tId ? 'text-blue-600' : 'text-slate-500'}`}>{tId}</span>
+                  <span className={`text-xs font-black uppercase tracking-widest ${settings.theme === tId ? 'text-brand' : 'text-slate-500'}`}>{tId}</span>
                 </button>
               ))}
             </div>
@@ -332,11 +348,11 @@ const App: React.FC = () => {
   };
 
   const renderContent = () => {
-    if (isLoading && chargers.length === 0) return <div className="flex items-center justify-center h-[60vh]"><Activity size={48} className="text-blue-500 animate-pulse" /></div>;
+    if (isLoading && chargers.length === 0) return <div className="flex items-center justify-center h-[60vh]"><Activity size={48} className="text-brand animate-pulse" /></div>;
     switch (activeView) {
       case 'dashboard': return <Dashboard chargers={chargers} transactions={transactions} liveEvents={liveEvents} language={language} isLive={dbStatus?.influxConnected} />;
       case 'chargers': return <ChargerList chargers={chargers} onRemoteAction={handleRemoteAction} onAddCharger={handleAddCharger} onEditCharger={handleEditCharger} onDeleteCharger={handleDeleteCharger} language={language} />;
-      case 'users': return <UserManagement users={users} onAddUser={handleAddUser} onBulkAddUsers={handleBulkAddUsers} onEditUser={handleEditUser} onUpdateStatus={handleEditUser} onTopUp={(id, amt) => { const u = users.find(u => u.id === id); if(u) handleEditUser(id, { balance: u.balance + amt }); }} language={language} />;
+      case 'users': return <UserManagement users={users} onAddUser={handleAddUser} onBulkAddUsers={() => {}} onEditUser={handleEditUser} onUpdateStatus={handleEditUser} onDeleteUser={handleDeleteUser} onTopUp={(id, amt) => { const u = users.find(u => u.id === id); if(u) handleEditUser(id, { balance: u.balance + amt }); }} language={language} />;
       case 'transactions': return <Transactions transactions={transactions} language={language} />;
       case 'logs': return <OCPPLogs logs={logs} />;
       case 'ai-insights': return <AIAnalyst chargers={chargers} logs={logs} language={language} />;

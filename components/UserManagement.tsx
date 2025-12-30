@@ -5,7 +5,7 @@ import { translations } from '../locales/translations';
 import { 
   Plus, ShieldAlert, CheckCircle2, Search, Wallet, X, Loader2, 
   Smartphone, Zap, CarFront, Pencil, AlertCircle, FileUp, 
-  Calendar, Check, CreditCard, Building2, ExternalLink
+  Calendar, Check, CreditCard, Building2, ExternalLink, Trash2
 } from 'lucide-react';
 
 interface UserManagementProps {
@@ -14,11 +14,12 @@ interface UserManagementProps {
   onBulkAddUsers: (users: Partial<User>[]) => void;
   onEditUser: (userId: string, user: Partial<User>) => void;
   onUpdateStatus: (id: string, updates: Partial<User>) => void;
+  onDeleteUser: (id: string) => void;
   onTopUp: (userId: string, amount: number) => void;
   language: Language;
 }
 
-const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBulkAddUsers, onEditUser, onUpdateStatus, onTopUp, language }) => {
+const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBulkAddUsers, onEditUser, onUpdateStatus, onDeleteUser, onTopUp, language }) => {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
@@ -155,13 +156,13 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
           <input 
             type="text" 
             placeholder={t.searchPlaceholder} 
-            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 outline-none transition-all shadow-sm" 
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-brand/10 outline-none transition-all shadow-sm" 
             value={searchTerm} 
             onChange={(e) => setSearchTerm(e.target.value)} 
           />
         </div>
         <div className="flex gap-2 w-full md:w-auto">
-          <button onClick={handleOpenAdd} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 active:scale-95 transition-all">
+          <button onClick={handleOpenAdd} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-brand text-white font-bold rounded-xl shadow-brand active:scale-95 transition-all">
             <Plus size={18} /> {t.addUser}
           </button>
         </div>
@@ -184,15 +185,15 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
             {filteredUsers.map((user) => {
               const expiry = getExpiryLabel(user.rfidExpiration);
               return (
-                <tr key={user.id} className="hover:bg-blue-50/30 group transition-colors">
+                <tr key={user.id} className="hover:bg-brand/5 group transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-black text-sm border-2 border-white shadow-sm">{user.name.charAt(0)}</div>
+                      <div className="w-10 h-10 rounded-full bg-brand/10 text-brand flex items-center justify-center font-black text-sm border-2 border-white shadow-sm">{user.name.charAt(0)}</div>
                       <div><p className="font-bold text-slate-900">{user.name}</p><p className="text-[10px] text-slate-400 font-medium">{user.email}</p></div>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm font-medium">
-                    <div className="flex items-center gap-2"><CarFront size={14} className="text-blue-500" /> {user.placa}</div>
+                    <div className="flex items-center gap-2"><CarFront size={14} className="text-brand" /> {user.placa}</div>
                     <div className="text-[10px] text-slate-400 font-mono mt-0.5">{user.cedula}</div>
                   </td>
                   <td className="px-6 py-4"><span className="font-mono text-[10px] font-black bg-slate-100 px-2 py-1 rounded border border-slate-200">{user.rfidTag}</span></td>
@@ -209,8 +210,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
                   <td className="px-6 py-4 text-right font-black text-slate-900 text-sm font-mono">{t.currencySymbol}{user.balance.toLocaleString()}</td>
                   <td className="px-6 py-4 text-center">
                     <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => handleOpenEdit(user)} className="p-2 rounded-lg border border-slate-100 bg-white hover:text-blue-600 shadow-sm transition-all hover:scale-110"><Pencil size={18} /></button>
+                      <button onClick={() => handleOpenEdit(user)} className="p-2 rounded-lg border border-slate-100 bg-white hover:text-brand shadow-sm transition-all hover:scale-110"><Pencil size={18} /></button>
                       <button onClick={() => handleOpenTopUp(user)} className="p-2 rounded-lg border border-slate-100 bg-white hover:text-emerald-600 shadow-sm transition-all hover:scale-110"><Wallet size={18} /></button>
+                      <button onClick={() => { if(window.confirm('Delete user?')) onDeleteUser(user.id); }} className="p-2 rounded-lg border border-slate-100 bg-white hover:text-rose-600 shadow-sm transition-all hover:scale-110"><Trash2 size={18} /></button>
                     </div>
                   </td>
                 </tr>
@@ -219,6 +221,88 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
           </tbody>
         </table>
       </div>
+
+      {isTopUpModalOpen && selectedUser && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+            <div className="p-8 border-b flex justify-between items-center bg-slate-50/50 rounded-t-[40px]">
+              <div className="flex items-center gap-4">
+                 <div className="p-3 bg-brand/10 text-brand rounded-2xl shadow-sm">
+                    <Wallet size={24} />
+                 </div>
+                 <div>
+                    <h3 className="font-black text-xl text-slate-900">{t.topUp}</h3>
+                    <p className="text-xs text-slate-500 font-medium">{selectedUser.name}</p>
+                 </div>
+              </div>
+              <button onClick={() => setIsTopUpModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X size={20} className="text-slate-400" /></button>
+            </div>
+            
+            <div className="p-8 space-y-6 overflow-y-auto">
+              {paymentStatus === 'success' ? (
+                <div className="py-10 text-center flex flex-col items-center animate-in zoom-in-50 duration-500">
+                  <div className="w-24 h-24 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-emerald-500/10">
+                    <CheckCircle2 size={48} />
+                  </div>
+                  <h4 className="font-black text-2xl text-slate-900">{t.paymentSuccess}</h4>
+                  <p className="text-slate-500 mt-2 font-medium">RFID wallet has been credited.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">{t.amount}</label>
+                    <div className="relative">
+                      <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-slate-400 text-2xl">$</span>
+                      <input 
+                        type="number" 
+                        className="w-full pl-12 pr-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl text-3xl font-black text-slate-900 focus:border-brand/50 outline-none transition-all shadow-inner" 
+                        value={topUpAmount} 
+                        onChange={e => setTopUpAmount(e.target.value)} 
+                        disabled={isProcessing} 
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Payment Method</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {paymentMethods.map(m => (
+                        <button 
+                          key={m.id}
+                          onClick={() => setSelectedMethod(m.id)}
+                          className={`
+                            p-4 rounded-[24px] border-2 transition-all flex flex-col gap-2 relative group overflow-hidden
+                            ${selectedMethod === m.id ? 'border-brand bg-brand/5' : 'border-slate-100 bg-white hover:border-slate-200'}
+                          `}
+                        >
+                          <div className={`p-2 rounded-xl w-fit ${m.color} shadow-sm`}>
+                            <m.icon size={18} />
+                          </div>
+                          <span className={`text-sm font-black ${selectedMethod === m.id ? 'text-brand' : 'text-slate-600'}`}>{m.name}</span>
+                          {selectedMethod === m.id && (
+                            <div className="absolute right-3 top-3 bg-brand text-white rounded-full p-1 shadow-sm">
+                              <Check size={10} />
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={simulateSuccess} 
+                    disabled={isProcessing || !selectedMethod} 
+                    className="w-full py-5 bg-emerald-600 text-white font-black rounded-[24px] flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20 active:scale-95 disabled:opacity-50"
+                  >
+                    {isProcessing ? <Loader2 className="animate-spin" /> : <Building2 size={20} />} 
+                    Secure Checkout
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {(isModalOpen || isEditModalOpen) && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -230,35 +314,35 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
             <form className="p-8 grid grid-cols-2 gap-4" onSubmit={handleUserSubmit}>
               <div className="col-span-2 space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
-                <input placeholder="Ex: Alejandro Rivera" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 outline-none transition-all" value={userFormData.name} onChange={e => setUserFormData({...userFormData, name: e.target.value})} required />
+                <input placeholder="Ex: Alejandro Rivera" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-brand/10 outline-none transition-all" value={userFormData.name} onChange={e => setUserFormData({...userFormData, name: e.target.value})} required />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
-                <input type="email" placeholder="email@provider.com" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 outline-none transition-all" value={userFormData.email} onChange={e => setUserFormData({...userFormData, email: e.target.value})} required />
+                <input type="email" placeholder="email@provider.com" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-brand/10 outline-none transition-all" value={userFormData.email} onChange={e => setUserFormData({...userFormData, email: e.target.value})} required />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone</label>
-                <input placeholder="+57 3..." className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 outline-none transition-all" value={userFormData.phoneNumber} onChange={e => setUserFormData({...userFormData, phoneNumber: e.target.value})} required />
+                <input placeholder="+57 3..." className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-brand/10 outline-none transition-all" value={userFormData.phoneNumber} onChange={e => setUserFormData({...userFormData, phoneNumber: e.target.value})} required />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Plate</label>
-                <input placeholder="ABC-123" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 outline-none transition-all" value={userFormData.placa} onChange={e => setUserFormData({...userFormData, placa: e.target.value})} required />
+                <input placeholder="ABC-123" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-brand/10 outline-none transition-all" value={userFormData.placa} onChange={e => setUserFormData({...userFormData, placa: e.target.value})} required />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ID Number</label>
-                <input placeholder="CC / ID" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 outline-none transition-all" value={userFormData.cedula} onChange={e => setUserFormData({...userFormData, cedula: e.target.value})} required />
+                <input placeholder="CC / ID" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-brand/10 outline-none transition-all" value={userFormData.cedula} onChange={e => setUserFormData({...userFormData, cedula: e.target.value})} required />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">RFID Tag</label>
-                <input placeholder="RFID_..." className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-mono" value={userFormData.rfidTag} onChange={e => setUserFormData({...userFormData, rfidTag: e.target.value})} required />
+                <input placeholder="RFID_..." className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-brand/10 outline-none transition-all font-mono" value={userFormData.rfidTag} onChange={e => setUserFormData({...userFormData, rfidTag: e.target.value})} required />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">RFID Expiration</label>
-                <input type="date" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 outline-none transition-all" value={userFormData.rfidExpiration} onChange={e => setUserFormData({...userFormData, rfidExpiration: e.target.value})} required />
+                <input type="date" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-brand/10 outline-none transition-all" value={userFormData.rfidExpiration} onChange={e => setUserFormData({...userFormData, rfidExpiration: e.target.value})} required />
               </div>
               <div className="col-span-2 flex gap-3 pt-6">
                 <button type="button" onClick={() => { setIsModalOpen(false); setIsEditModalOpen(false); }} className="flex-1 py-4 bg-slate-100 font-bold rounded-2xl hover:bg-slate-200 transition-all active:scale-95">Cancel</button>
-                <button type="submit" className="flex-1 py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 active:scale-95">Save User</button>
+                <button type="submit" className="flex-1 py-4 bg-brand text-white font-bold rounded-2xl hover:bg-brand-hover transition-all shadow-brand active:scale-95">Save User</button>
               </div>
             </form>
           </div>

@@ -97,7 +97,8 @@ async function getLatestState(measurement, localStore) {
   }
 }
 
-app.use(express.json({ limit: '10mb' }));
+// Increase JSON limit for base64 images
+app.use(express.json({ limit: '20mb' }));
 const distPath = path.resolve(__dirname, 'dist');
 app.use(express.static(distPath));
 
@@ -166,6 +167,11 @@ app.put('/api/users/:id', async (req, res) => {
   if (index !== -1) usersStore[index] = { ...usersStore[index], ...user };
   await saveEntity('users', { id }, user);
   res.json(user);
+});
+app.delete('/api/users/:id', (req, res) => {
+  const id = req.params.id;
+  usersStore = usersStore.filter(u => u.id !== id);
+  res.status(204).send();
 });
 
 app.get('/api/transactions', async (req, res) => res.json(await getLatestState('transactions', transactionsStore)));
