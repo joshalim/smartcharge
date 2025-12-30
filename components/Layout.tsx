@@ -21,9 +21,10 @@ interface LayoutProps {
   language: Language;
   setLanguage: (lang: Language) => void;
   extraHeader?: React.ReactNode;
+  customLogo?: string | null;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, language, setLanguage, extraHeader }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, language, setLanguage, extraHeader, customLogo }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
   const t = translations[language];
 
@@ -47,7 +48,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, la
           <div className="w-12 h-12 border-2 border-blue-500 rounded-xl flex items-center justify-center bg-slate-800 shadow-inner">
              <Zap size={24} className="text-blue-500 fill-blue-500" />
           </div>
-          {isSidebarOpen && <span className="ml-3 font-black text-xl tracking-tighter text-white">ADMIN</span>}
+          {isSidebarOpen && <span className="ml-3 font-black text-xl tracking-tighter text-white uppercase">Admin</span>}
         </div>
 
         <nav className="flex-1 mt-6 px-3 space-y-2">
@@ -87,12 +88,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, la
           <div className="flex items-center gap-6">
              <div className="flex items-center">
                 <img 
-                  src="logo.png" 
+                  src={customLogo || "logo.png"} 
                   alt="SMART Charge" 
                   className="h-10 w-auto object-contain cursor-pointer hover:opacity-80 transition-opacity"
                   onClick={() => setActiveView('dashboard')}
                   onError={(e) => {
-                    (e.target as any).style.display = 'none';
+                    // Only hide if we don't have a custom logo and logo.png fails
+                    if (!customLogo) (e.target as any).style.display = 'none';
                   }}
                 />
              </div>

@@ -9,7 +9,7 @@ import AIAnalyst from './components/AIAnalyst';
 import Transactions from './components/Transactions';
 import { ViewType, Charger, Transaction, OCPPLog, User, Language } from './types';
 import { translations } from './locales/translations';
-import { Activity, AlertCircle, RefreshCw, Database } from 'lucide-react';
+import { Activity, AlertCircle, RefreshCw, Database, Upload, Image as ImageIcon, Save, Check } from 'lucide-react';
 
 export interface LiveEvent {
   id: string;
@@ -23,6 +23,12 @@ interface SystemStatus {
   mode: 'PRODUCTION' | 'MOCK';
 }
 
+interface AppSettings {
+  customLogo: string | null;
+  payuEnabled: boolean;
+  currency: string;
+}
+
 const App: React.FC = () => {
   const [activeView, setActiveView] = React.useState<ViewType>('dashboard');
   const [language, setLanguage] = React.useState<Language>('es'); 
@@ -34,6 +40,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dbStatus, setDbStatus] = useState<SystemStatus | null>(null);
+  const [settings, setSettings] = useState<AppSettings>({ customLogo: null, payuEnabled: true, currency: 'COP' });
 
   const t = translations[language];
 
@@ -44,7 +51,8 @@ const App: React.FC = () => {
         { key: 'users', url: '/api/users', setter: setUsers },
         { key: 'transactions', url: '/api/transactions', setter: setTransactions },
         { key: 'logs', url: '/api/logs', setter: setLogs },
-        { key: 'status', url: '/api/system/status', setter: setDbStatus }
+        { key: 'status', url: '/api/system/status', setter: setDbStatus },
+        { key: 'settings', url: '/api/settings', setter: setSettings }
       ];
 
       const results = await Promise.allSettled(
@@ -70,6 +78,23 @@ const App: React.FC = () => {
 
   const addEvent = (type: LiveEvent['type'], message: string) => {
     setLiveEvents(prev => [{ id: Math.random().toString(), timestamp: new Date().toISOString(), type, message }, ...prev].slice(0, 15));
+  };
+
+  const handleUpdateSettings = async (newSettings: Partial<AppSettings>) => {
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSettings)
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setSettings(updated);
+        addEvent('success', 'System settings updated.');
+      }
+    } catch (e) {
+      addEvent('error', 'Failed to update settings.');
+    }
   };
 
   const handleAddCharger = async (charger: Partial<Charger>) => {
@@ -164,6 +189,92 @@ const App: React.FC = () => {
     );
   }
 
+  const SettingsView = () => {
+    const [logoFile, setLogoFile] = useState<string | null>(settings.customLogo);
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setLogoFile(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+
+    const saveBranding = async () => {
+      setIsSaving(true);
+      await handleUpdateSettings({ customLogo: logoFile });
+      setIsSaving(false);
+    };
+
+    return (
+      <div className="space-y-8 max-w-4xl mx-auto">
+        <section className="bg-white rounded-[32px] p-8 border border-slate-200 shadow-sm space-y-6">
+          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+            <ImageIcon className="text-blue-600" size={24} />
+            <h3 className="text-xl font-black text-slate-900">Custom Branding</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            <div className="space-y-4">
+              <p className="text-sm text-slate-500 leading-relaxed">
+                Upload your company logo to customize the dashboard header. Recommended size: 400x120px, PNG with transparent background.
+              </p>
+              <div className="flex flex-col gap-3">
+                <label className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-50 text-blue-700 font-bold rounded-2xl border-2 border-dashed border-blue-200 cursor-pointer hover:bg-blue-100 transition-all">
+                  <Upload size={20} />
+                  Choose Image
+                  <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                </label>
+                <button 
+                  onClick={saveBranding}
+                  disabled={isSaving}
+                  className="flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 text-white font-black rounded-[24px] shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {isSaving ? <RefreshCw className="animate-spin" /> : <Save size={20} />}
+                  Save Logo
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center justify-center p-8 bg-slate-50 rounded-[32px] border border-slate-200">
+               <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">Preview</p>
+               <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[100px] flex items-center justify-center w-full">
+                  {logoFile ? (
+                    <img src={logoFile} alt="Logo Preview" className="max-h-16 object-contain" />
+                  ) : (
+                    <div className="flex flex-col items-center text-slate-300">
+                      <ImageIcon size={48} />
+                      <p className="text-xs mt-2">No custom logo</p>
+                    </div>
+                  )}
+               </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-white rounded-[32px] p-8 border border-slate-200 shadow-sm space-y-4">
+          <h3 className="text-xl font-bold flex items-center gap-2"><Database className="text-blue-600" /> System Details</h3>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Database Mode</p>
+               <p className="font-bold text-slate-700">{dbStatus?.mode}</p>
+            </div>
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TSDB Connection</p>
+               <p className={`font-bold ${dbStatus?.influxConnected ? 'text-emerald-600' : 'text-amber-600'}`}>
+                 {dbStatus?.influxConnected ? 'Active' : 'Disconnected'}
+               </p>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  };
+
   const renderContent = () => {
     if (isLoading && chargers.length === 0) return <div className="flex items-center justify-center h-[60vh]"><Activity size={48} className="text-blue-500 animate-pulse" /></div>;
     switch (activeView) {
@@ -173,12 +284,12 @@ const App: React.FC = () => {
       case 'transactions': return <Transactions transactions={transactions} language={language} />;
       case 'logs': return <OCPPLogs logs={logs} />;
       case 'ai-insights': return <AIAnalyst chargers={chargers} logs={logs} language={language} />;
-      case 'settings': return <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm"><h3 className="text-xl font-bold">Database Engine: {dbStatus?.mode}</h3></div>;
+      case 'settings': return <SettingsView />;
       default: return null;
     }
   };
 
-  return <Layout activeView={activeView} setActiveView={setActiveView} language={language} setLanguage={setLanguage} extraHeader={renderTopBarStatus()}>{renderContent()}</Layout>;
+  return <Layout activeView={activeView} setActiveView={setActiveView} language={language} setLanguage={setLanguage} extraHeader={renderTopBarStatus()} customLogo={settings.customLogo}>{renderContent()}</Layout>;
 };
 
 export default App;

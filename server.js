@@ -18,6 +18,11 @@ let chargersStore = [...initialChargers];
 let usersStore = [...initialUsers];
 let transactionsStore = [...initialTransactions];
 let logsStore = [...initialLogs];
+let settingsStore = {
+  customLogo: null, // Base64 string
+  payuEnabled: true,
+  currency: 'COP'
+};
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -97,7 +102,8 @@ async function getLatestState(measurement, localStore) {
   }
 }
 
-app.use(express.json());
+// Increase payload limit for base64 images
+app.use(express.json({ limit: '10mb' }));
 const distPath = path.resolve(__dirname, 'dist');
 app.use(express.static(distPath));
 
@@ -107,6 +113,41 @@ app.get('/api/system/status', (req, res) => res.json({
   mode: influxEnabled ? 'PRODUCTION' : 'MOCK',
   bucket: bucket
 }));
+
+// Settings Endpoints
+app.get('/api/settings', (req, res) => res.json(settingsStore));
+app.post('/api/settings', (req, res) => {
+  settingsStore = { ...settingsStore, ...req.body };
+  res.json(settingsStore);
+});
+
+// PayU Colombia Simulated Integration
+app.post('/api/payments/payu/init', (req, res) => {
+  const { userId, amount, method } = req.body;
+  // In a real PayU integration, we would generate a signature here and return form parameters or a redirect URL
+  // Reference: https://developers.payulatam.com/latam/en/docs/integrations/api-integration.html
+  console.log(`Initializing PayU payment for user ${userId}, amount ${amount} via ${method}`);
+  
+  res.json({
+    status: 'success',
+    checkoutUrl: 'https://sandbox.checkout.payulatam.com/checkout/payment.do', // Mock sandbox URL
+    params: {
+      merchantId: '508029',
+      accountId: '512321',
+      description: 'RFID Top-up - SMART Charge',
+      referenceCode: `RECHARGE-${Date.now()}`,
+      amount: amount,
+      tax: '0',
+      taxReturnBase: '0',
+      currency: 'COP',
+      signature: 'SIMULATED_SIGNATURE_FOR_DEMO',
+      test: '1',
+      buyerEmail: 'user@example.com',
+      responseUrl: 'http://localhost:3080/api/payments/payu/response',
+      confirmationUrl: 'http://localhost:3080/api/payments/payu/confirmation'
+    }
+  });
+});
 
 // Charger Endpoints
 app.get('/api/chargers', async (req, res) => res.json(await getLatestState('chargers', chargersStore)));
@@ -133,9 +174,6 @@ app.put('/api/chargers/:id', async (req, res) => {
 app.delete('/api/chargers/:id', (req, res) => {
   const id = req.params.id;
   chargersStore = chargersStore.filter(c => c.id !== id);
-  // Note: deleting historical points from InfluxDB is a background operation 
-  // and usually not done via simple API calls in TSDBs. 
-  // The memory store reflects the deletion for the session.
   res.status(204).send();
 });
 
