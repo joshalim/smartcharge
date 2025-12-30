@@ -1,18 +1,15 @@
 
 import React from 'react';
-import { Charger, Transaction, ChargerStatus, Language, GrafanaConfig } from '../types';
+import { Charger, Transaction, ChargerStatus, Language } from '../types';
 import { translations } from '../locales/translations';
 import { 
   Zap, 
   Clock, 
   DollarSign, 
-  TrendingUp,
   BatteryCharging,
   Activity,
   AlertCircle,
   CheckCircle2,
-  ExternalLink,
-  Maximize2,
   Database
 } from 'lucide-react';
 import { LiveEvent } from '../App';
@@ -22,20 +19,17 @@ interface DashboardProps {
   transactions: Transaction[];
   liveEvents: LiveEvent[];
   language: Language;
-  grafanaConfig: GrafanaConfig;
   isLive?: boolean;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ chargers, transactions, liveEvents, language, grafanaConfig, isLive }) => {
+const Dashboard: React.FC<DashboardProps> = ({ chargers, transactions, liveEvents, language, isLive }) => {
   const t = translations[language];
   const activeChargers = chargers.filter(c => c.status === ChargerStatus.CHARGING).length;
   const totalRevenue = transactions.reduce((acc, tr) => acc + tr.cost, 0);
   const totalEnergy = chargers.reduce((acc, c) => acc + c.totalEnergy, 0);
   const currentLoad = chargers.reduce((acc, c) => acc + c.currentPower, 0);
 
-  const grafanaSrc = `${grafanaConfig.url}/d/${grafanaConfig.dashboardUid}?orgId=1&refresh=${grafanaConfig.refreshInterval}&kiosk&theme=${grafanaConfig.theme}`;
-
-  const StatCard = ({ title, value, icon: Icon, color, trend, sub }: any) => (
+  const StatCard = ({ title, value, icon: Icon, color, sub }: any) => (
     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group">
       <div className="flex items-center justify-between mb-4 relative z-10">
         <div className={`p-3 rounded-lg ${color}`}>
@@ -88,35 +82,39 @@ const Dashboard: React.FC<DashboardProps> = ({ chargers, transactions, liveEvent
           value={`${t.currencySymbol}${totalRevenue.toLocaleString()}`} 
           icon={DollarSign} 
           color="bg-emerald-600"
+          sub="Recent income stream"
         />
       </div>
-      {/* Rest of Dashboard component... */}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col min-h-[500px]">
-          <div className="p-4 border-b border-white/5 flex items-center justify-between bg-black/20">
-            <h3 className="text-white font-bold text-sm flex items-center gap-2">
-              <Activity className="text-indigo-400" size={18} />
-              Grafana {t.liveTelemetry}
-            </h3>
-            <div className="flex items-center gap-3">
-              <span className={`flex items-center gap-1.5 text-[10px] font-black px-2 py-1 rounded border ${isLive ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' : 'text-amber-400 bg-amber-400/10 border-amber-400/20'}`}>
-                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${isLive ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
-                {isLive ? 'TSDB STREAMING' : 'OFFLINE MODE'}
-              </span>
-              <a href={grafanaConfig.url} target="_blank" className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 transition-colors">
-                <ExternalLink size={16} />
-              </a>
-            </div>
-          </div>
-          <div className="flex-1 relative bg-[#111111]">
-            <iframe 
-              src={grafanaSrc} 
-              width="100%" 
-              height="100%" 
-              frameBorder="0"
-              className="absolute inset-0"
-              title="Grafana Dashboard"
-            ></iframe>
+        <div className="lg:col-span-2 space-y-8">
+          <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
+             <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                   <Activity className="text-blue-600" />
+                   {t.monitoringGrid}
+                </h3>
+                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${isLive ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+                   {isLive ? 'Network Synchronized' : 'Offline Simulation'}
+                </span>
+             </div>
+             
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {chargers.slice(0, 4).map(charger => (
+                   <div key={charger.id} className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                         <div className={`w-3 h-3 rounded-full ${charger.status === 'Available' ? 'bg-emerald-500' : 'bg-blue-500'} shadow-sm`}></div>
+                         <div>
+                            <p className="text-xs font-black text-slate-800">{charger.name}</p>
+                            <p className="text-[10px] font-mono text-slate-400">{charger.id}</p>
+                         </div>
+                      </div>
+                      <div className="text-right">
+                         <p className="text-xs font-black text-slate-700">{charger.currentPower} kW</p>
+                      </div>
+                   </div>
+                ))}
+             </div>
           </div>
         </div>
 
@@ -153,7 +151,6 @@ const Dashboard: React.FC<DashboardProps> = ({ chargers, transactions, liveEvent
           </div>
         </div>
       </div>
-      {/* Table grid omitted for brevity... */}
     </div>
   );
 };

@@ -7,7 +7,7 @@ import UserManagement from './components/UserManagement';
 import OCPPLogs from './components/OCPPLogs';
 import AIAnalyst from './components/AIAnalyst';
 import Transactions from './components/Transactions';
-import { ViewType, Charger, Transaction, OCPPLog, User, Language, GrafanaConfig } from './types';
+import { ViewType, Charger, Transaction, OCPPLog, User, Language } from './types';
 import { translations } from './locales/translations';
 import { Activity, AlertCircle, RefreshCw, Database } from 'lucide-react';
 
@@ -34,13 +34,6 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dbStatus, setDbStatus] = useState<SystemStatus | null>(null);
-
-  const [grafanaConfig] = useState<GrafanaConfig>({
-    url: 'http://localhost:3000',
-    dashboardUid: 'smart-charge-live',
-    refreshInterval: '5s',
-    theme: 'light'
-  });
 
   const t = translations[language];
 
@@ -174,7 +167,7 @@ const App: React.FC = () => {
   const renderContent = () => {
     if (isLoading && chargers.length === 0) return <div className="flex items-center justify-center h-[60vh]"><Activity size={48} className="text-blue-500 animate-pulse" /></div>;
     switch (activeView) {
-      case 'dashboard': return <Dashboard chargers={chargers} transactions={transactions} liveEvents={liveEvents} language={language} grafanaConfig={grafanaConfig} isLive={dbStatus?.influxConnected} />;
+      case 'dashboard': return <Dashboard chargers={chargers} transactions={transactions} liveEvents={liveEvents} language={language} isLive={dbStatus?.influxConnected} />;
       case 'chargers': return <ChargerList chargers={chargers} onRemoteAction={handleRemoteAction} onAddCharger={handleAddCharger} onEditCharger={handleEditCharger} onDeleteCharger={handleDeleteCharger} language={language} />;
       case 'users': return <UserManagement users={users} onAddUser={handleAddUser} onBulkAddUsers={handleBulkAddUsers} onEditUser={handleEditUser} onUpdateStatus={handleEditUser} onTopUp={(id, amt) => { const u = users.find(u => u.id === id); if(u) handleEditUser(id, { balance: u.balance + amt }); }} language={language} />;
       case 'transactions': return <Transactions transactions={transactions} language={language} />;

@@ -18,13 +18,6 @@ export enum ConnectorType {
 
 export type Language = 'en' | 'es';
 
-export interface GrafanaConfig {
-  url: string;
-  dashboardUid: string;
-  refreshInterval: string;
-  theme: 'light' | 'dark';
-}
-
 export interface ConnectorPricing {
   connectorId: number;
   connectorType: ConnectorType;

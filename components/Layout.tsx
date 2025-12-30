@@ -11,8 +11,7 @@ import {
   BrainCircuit,
   Users,
   Menu,
-  X,
-  Languages
+  X
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -44,24 +43,20 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, la
         ${isSidebarOpen ? 'w-64' : 'w-20'} 
         bg-slate-900 text-white transition-all duration-300 flex flex-col h-full border-r border-slate-800
       `}>
-        <div className="p-4 flex items-center justify-between border-b border-slate-800/50 h-20">
+        <div className="p-4 flex items-center justify-center border-b border-slate-800/50 h-24 overflow-hidden bg-white">
           {isSidebarOpen ? (
-            <div className="flex items-center gap-3 overflow-hidden">
-              <div className="flex-shrink-0 relative">
-                <div className="w-10 h-10 border-2 border-green-500 rounded-lg flex items-center justify-center relative">
-                  <Zap size={18} className="text-green-500 fill-green-500" />
-                  <div className="absolute -bottom-1 -right-1 w-3 h-4 bg-green-500 rounded-sm"></div>
-                </div>
-              </div>
-              <div className="h-8 w-[2px] bg-slate-700 mx-1"></div>
-              <div className="flex items-baseline gap-1 font-sans">
-                <span className="text-2xl font-bold text-[#3B82F6] tracking-tight">SMART</span>
-                <span className="text-2xl font-bold text-[#F8FAFC] tracking-tight">Charge</span>
-              </div>
-            </div>
+            <img 
+              src="logo.png" 
+              alt="SMART Charge" 
+              className="h-auto max-w-[80%] object-contain transition-all duration-300"
+              onError={(e) => {
+                // Fallback in case image isn't found
+                (e.target as any).style.display = 'none';
+              }}
+            />
           ) : (
-            <div className="w-10 h-10 border-2 border-green-500 rounded-lg flex items-center justify-center mx-auto">
-               <Zap size={18} className="text-green-500 fill-green-500" />
+             <div className="w-10 h-10 border-2 border-blue-500 rounded-lg flex items-center justify-center mx-auto">
+               <Zap size={18} className="text-blue-500 fill-blue-500" />
             </div>
           )}
         </div>
