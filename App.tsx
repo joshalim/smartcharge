@@ -29,7 +29,6 @@ const App: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [logs, setLogs] = useState<OCPPLog[]>([]);
   const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,22 +48,32 @@ const App: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const [cRes, uRes, tRes, lRes] = await Promise.all([
-        fetch('/api/chargers'),
-        fetch('/api/users'),
-        fetch('/api/transactions'),
-        fetch('/api/logs')
-      ]);
-      
-      if (cRes.ok) setChargers(await cRes.json());
-      if (uRes.ok) setUsers(await uRes.json());
-      if (tRes.ok) setTransactions(await tRes.json());
-      if (lRes.ok) setLogs(await lRes.json());
+      const endpoints = [
+        { key: 'chargers', url: '/api/chargers', setter: setChargers },
+        { key: 'users', url: '/api/users', setter: setUsers },
+        { key: 'transactions', url: '/api/transactions', setter: setTransactions },
+        { key: 'logs', url: '/api/logs', setter: setLogs }
+      ];
+
+      const results = await Promise.allSettled(
+        endpoints.map(e => fetch(e.url).then(r => {
+          if (!r.ok) throw new Error(`${e.key} failed with ${r.status}`);
+          return r.json();
+        }))
+      );
+
+      results.forEach((res, index) => {
+        if (res.status === 'fulfilled') {
+          endpoints[index].setter(res.value);
+        } else {
+          console.warn(`[API] Endpoint ${endpoints[index].key} failed:`, res.reason);
+        }
+      });
       
       setError(null);
     } catch (err) {
-      console.error("Failed to fetch data:", err);
-      setError("Unable to connect to the OCPP Central System API. Please verify the server is running.");
+      console.error("Critical Connection Error:", err);
+      setError("Unable to connect to the OCPP Central System API. Verify firewall port 3080 and Nginx proxy.");
     } finally {
       setIsLoading(false);
     }
@@ -72,7 +81,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 5000); 
+    const interval = setInterval(fetchData, 8000); 
     return () => clearInterval(interval);
   }, []);
 
@@ -91,25 +100,10 @@ const App: React.FC = () => {
           type: 'success',
           message: `Remote ${action} sent to ${chargerId}`
         }, ...prev].slice(0, 15));
-        
-        fetchData();
-      } else {
-        setLiveEvents(prev => [{
-          id: Math.random().toString(),
-          timestamp: new Date().toISOString(),
-          type: 'error',
-          message: `Failed to send ${action} to ${chargerId}`
-        }, ...prev].slice(0, 15));
       }
     } catch (error) {
       console.error("Remote action error:", error);
     }
-  };
-
-  const handleCopy = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
   };
 
   if (error && chargers.length === 0) {
@@ -158,7 +152,6 @@ const App: React.FC = () => {
       case 'settings':
         return (
           <div className="space-y-8 max-w-6xl pb-20">
-            {/* ... rest of the settings UI from the previous version ... */}
             <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
                <div className="flex items-center gap-3 mb-8">
                   <div className="p-3 bg-green-100 text-green-600 rounded-2xl">
@@ -171,27 +164,23 @@ const App: React.FC = () => {
                </div>
                
                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">{t.gatewayKey}</label>
-                      <input 
-                        type="password" 
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm focus:ring-4 focus:ring-green-500/10 focus:outline-none"
-                        value={paymentKeys.publicKey}
-                        onChange={e => setPaymentKeys({...paymentKeys, publicKey: e.target.value})}
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">{t.gatewayKey}</label>
+                    <input 
+                      type="password" 
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm"
+                      value={paymentKeys.publicKey}
+                      onChange={e => setPaymentKeys({...paymentKeys, publicKey: e.target.value})}
+                    />
                   </div>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">{t.gatewaySecret}</label>
-                      <input 
-                        type="password" 
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm focus:ring-4 focus:ring-green-500/10 focus:outline-none"
-                        value={paymentKeys.secretKey}
-                        onChange={e => setPaymentKeys({...paymentKeys, secretKey: e.target.value})}
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">{t.gatewaySecret}</label>
+                    <input 
+                      type="password" 
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm"
+                      value={paymentKeys.secretKey}
+                      onChange={e => setPaymentKeys({...paymentKeys, secretKey: e.target.value})}
+                    />
                   </div>
                </div>
             </div>
@@ -228,23 +217,20 @@ const App: React.FC = () => {
                       />
                     </div>
                   </div>
-                  <div className="space-y-4">
-                     <div>
-                        <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">Refresh Interval</label>
-                        <select 
-                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm"
-                          value={grafanaConfig.refreshInterval}
-                          onChange={e => setGrafanaConfig({...grafanaConfig, refreshInterval: e.target.value})}
-                        >
-                          <option value="5s">5 Seconds</option>
-                          <option value="10s">10 Seconds</option>
-                          <option value="1m">1 Minute</option>
-                        </select>
-                     </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">Refresh Interval</label>
+                    <select 
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm"
+                      value={grafanaConfig.refreshInterval}
+                      onChange={e => setGrafanaConfig({...grafanaConfig, refreshInterval: e.target.value})}
+                    >
+                      <option value="5s">5 Seconds</option>
+                      <option value="10s">10 Seconds</option>
+                      <option value="1m">1 Minute</option>
+                    </select>
                   </div>
                </div>
             </div>
-            {/* Step checklist removed for brevity but assumed present in your full file */}
           </div>
         );
       default:

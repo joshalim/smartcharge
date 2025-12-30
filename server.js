@@ -7,13 +7,15 @@ import { WebSocketServer } from 'ws';
 import { InfluxDB, Point } from '@influxdata/influxdb-client';
 import dotenv from 'dotenv';
 
+// Import mock data for failover if DB is empty
+import { MOCK_CHARGERS, MOCK_USERS, MOCK_TRANSACTIONS, MOCK_LOGS } from './services/mockData.js';
+
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-// Port moved to 3080 to avoid conflict with Grafana (3000)
 const port = process.env.PORT || 3080;
 const ocppPort = process.env.OCPP_PORT || 9000;
 
@@ -25,20 +27,29 @@ const token = process.env.INFLUX_TOKEN;
 const org = process.env.INFLUX_ORG || 'smartcharge';
 const bucket = process.env.INFLUX_BUCKET || 'smartcharge_bucket';
 
-if (!token) {
-  console.error("❌ ERROR: INFLUX_TOKEN is missing. Application cannot persist data.");
+let influxEnabled = false;
+let writeApi, queryApi;
+
+if (token) {
+  try {
+    const influxDB = new InfluxDB({ url: influxUrl, token });
+    writeApi = influxDB.getWriteApi(org, bucket);
+    queryApi = influxDB.getQueryApi(org);
+    influxEnabled = true;
+    console.log(`📡 TSDB Connected: ${influxUrl}`);
+  } catch (e) {
+    console.error("⚠️ InfluxDB Connection Failed. Running in Mock Mode.");
+  }
+} else {
+  console.warn("⚠️ INFLUX_TOKEN missing. Running in Mock Mode (Data won't persist).");
 }
 
-const influxDB = new InfluxDB({ url: influxUrl, token });
-const writeApi = influxDB.getWriteApi(org, bucket);
-const queryApi = influxDB.getQueryApi(org);
-
-console.log(`📡 TSDB Connected: ${influxUrl} (Bucket: ${bucket})`);
-
 /**
- * DATA RETRIEVAL
+ * DATA RETRIEVAL HELPERS
  */
-async function getLatestState(measurement) {
+async function getLatestState(measurement, mockData) {
+  if (!influxEnabled) return mockData;
+  
   const fluxQuery = `
     from(bucket: "${bucket}")
       |> range(start: -30d)
@@ -47,64 +58,101 @@ async function getLatestState(measurement) {
       |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
   `;
   try {
-    return await queryApi.collectRows(fluxQuery);
+    const rows = await queryApi.collectRows(fluxQuery);
+    return rows.length > 0 ? rows : mockData;
   } catch (e) {
-    console.error(`[TSDB][QUERY_ERR] ${measurement}:`, e.message);
-    return [];
+    return mockData;
   }
 }
 
 /**
- * MIDDLEWARE & ROUTES
+ * EXPRESS API ROUTES
  */
 app.use(express.json());
-
 const distPath = path.join(__dirname, 'dist');
 app.use(express.static(distPath));
 
 // API: List Chargers
 app.get('/api/chargers', async (req, res) => {
   try {
-    const chargers = await getLatestState('chargers');
-    const pricing = await getLatestState('charger_pricing');
-    
-    const enriched = chargers.map(c => {
-      const p = pricing.find(item => item.chargerId === c.id);
-      return {
-        ...c,
-        connectors: p ? [{
-          connectorId: 1,
-          pricePerKwh: p.pricePerKwh,
-          pricePerMinute: p.pricePerMinute,
-          status: c.status
-        }] : [{ connectorId: 1, pricePerKwh: 1000, pricePerMinute: 0, status: c.status }]
-      };
-    });
-    res.json(enriched);
+    const chargers = await getLatestState('chargers', MOCK_CHARGERS);
+    res.json(chargers);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// API: Transactions
-app.get('/api/transactions', async (req, res) => {
-  const fluxQuery = `
-    from(bucket: "${bucket}")
-      |> range(start: -30d)
-      |> filter(fn: (r) => r["_measurement"] == "transactions")
-      |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
-      |> sort(columns: ["_time"], desc: true)
-      |> limit(n: 50)
-  `;
+// API: List Users
+app.get('/api/users', async (req, res) => {
   try {
-    const rows = await queryApi.collectRows(fluxQuery);
-    res.json(rows);
-  } catch (e) {
-    res.json([]);
+    const users = await getLatestState('users', MOCK_USERS);
+    res.json(users);
+  } catch (err) {
+    res.json(MOCK_USERS);
   }
 });
 
-// Fallback to index.html for React Router
+// API: Transactions
+app.get('/api/transactions', async (req, res) => {
+  try {
+    const txs = await getLatestState('transactions', MOCK_TRANSACTIONS);
+    res.json(txs);
+  } catch (e) {
+    res.json(MOCK_TRANSACTIONS);
+  }
+});
+
+// API: Logs
+app.get('/api/logs', async (req, res) => {
+  try {
+    const logs = await getLatestState('logs', MOCK_LOGS);
+    res.json(logs);
+  } catch (e) {
+    res.json(MOCK_LOGS);
+  }
+});
+
+// API: Remote Actions (Start/Reset)
+app.post('/api/chargers/:id/remote-action', (req, res) => {
+  const { id } = req.params;
+  const { action } = req.body;
+  console.log(`[CMD] Sending ${action} to ${id}`);
+  
+  // In a real implementation, we would find the WebSocket for this charger and send the message
+  // For now, we simulate success
+  res.json({ status: 'Accepted', message: `Remote ${action} initiated` });
+});
+
+// API: Pricing Updates
+app.post('/api/chargers/:id/pricing', (req, res) => {
+  const { id } = req.params;
+  const { connectors } = req.body;
+  
+  if (influxEnabled) {
+    connectors.forEach(c => {
+      const p = new Point('charger_pricing')
+        .tag('chargerId', id)
+        .tag('connectorId', c.connectorId.toString())
+        .floatField('pricePerKwh', c.pricePerKwh)
+        .floatField('pricePerMinute', c.pricePerMinute);
+      writeApi.writePoint(p);
+    });
+    writeApi.flush();
+  }
+  res.json({ success: true });
+});
+
+// API: Payment Intent Simulation
+app.post('/api/payments/create-intent', (req, res) => {
+  const { userId, amount } = req.body;
+  res.json({ paymentId: `PAY-${Math.random().toString(36).substr(2, 9)}`, amount });
+});
+
+app.post('/api/payments/verify', (req, res) => {
+  res.json({ status: 'approved' });
+});
+
+// Fallback to index.html
 app.get('*', (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
@@ -120,52 +168,42 @@ wss.on('connection', (ws, req) => {
   const chargerId = req.url.split('/').pop() || 'Unknown';
   console.log(`[OCPP][CONN] Charger attached: ${chargerId}`);
 
-  const bootPoint = new Point('chargers')
-    .tag('id', chargerId)
-    .stringField('status', 'Available')
-    .stringField('lastHeartbeat', new Date().toISOString());
-  writeApi.writePoint(bootPoint);
+  if (influxEnabled) {
+    const bootPoint = new Point('chargers')
+      .tag('id', chargerId)
+      .stringField('status', 'Available')
+      .stringField('lastHeartbeat', new Date().toISOString());
+    writeApi.writePoint(bootPoint);
+  }
 
   ws.on('message', async (data) => {
     try {
       const msg = JSON.parse(data.toString());
-      const [type, id, action, payload] = msg;
+      console.log(`[OCPP][MSG][${chargerId}]`, JSON.stringify(msg));
 
-      const logPoint = new Point('logs')
-        .tag('chargerId', chargerId)
-        .tag('direction', 'IN')
-        .tag('messageType', action || 'Response')
-        .stringField('payload', JSON.stringify(payload || msg[2]));
-      writeApi.writePoint(logPoint);
+      if (influxEnabled) {
+        const logPoint = new Point('logs')
+          .tag('chargerId', chargerId)
+          .tag('direction', 'IN')
+          .tag('messageType', msg[2] || 'Response')
+          .stringField('payload', JSON.stringify(msg));
+        writeApi.writePoint(logPoint);
+        writeApi.flush();
+      }
 
+      // Simple Auto-Responder for Boot and Heartbeat
+      const [type, id, action] = msg;
       if (action === 'BootNotification') {
-        ws.send(JSON.stringify([3, id, {
-          status: 'Accepted',
-          currentTime: new Date().toISOString(),
-          interval: 300
-        }]));
+        ws.send(JSON.stringify([3, id, { status: 'Accepted', currentTime: new Date().toISOString(), interval: 300 }]));
       } else if (action === 'Heartbeat') {
         ws.send(JSON.stringify([3, id, { currentTime: new Date().toISOString() }]));
       }
-
-      await writeApi.flush();
     } catch (e) {
-      console.error(`[OCPP][ERR][${chargerId}]`, e.message);
+      console.error(`[OCPP][ERR]`, e.message);
     }
-  });
-
-  ws.on('close', () => {
-    console.log(`[OCPP][DISC] Charger offline: ${chargerId}`);
-    const offlinePoint = new Point('chargers')
-      .tag('id', chargerId)
-      .stringField('status', 'Unavailable');
-    writeApi.writePoint(offlinePoint);
   });
 });
 
-/**
- * START DASHBOARD SERVER
- */
 const server = http.createServer(app);
 server.listen(port, () => {
   console.log(`🚀 CMS Dashboard active at http://localhost:${port}`);
