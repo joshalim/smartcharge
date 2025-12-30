@@ -47,6 +47,8 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  password?: string;
+  role: 'admin' | 'driver';
   phoneNumber: string;
   placa: string;
   cedula: string;
@@ -76,4 +78,4 @@ export interface OCPPLog {
   payload: any;
 }
 
-export type ViewType = 'dashboard' | 'chargers' | 'users' | 'transactions' | 'logs' | 'settings' | 'ai-insights';
+export type ViewType = 'dashboard' | 'chargers' | 'users' | 'transactions' | 'logs' | 'settings' | 'ai-insights' | 'mobile-app' | 'auth';

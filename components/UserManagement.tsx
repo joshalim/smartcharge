@@ -6,7 +6,7 @@ import {
   Plus, ShieldAlert, CheckCircle2, Search, Wallet, X, Loader2, 
   Smartphone, Zap, CarFront, Pencil, AlertCircle, FileUp, 
   Calendar, Check, CreditCard, Building2, ExternalLink, Trash2,
-  Download, FileSpreadsheet, Upload, Users
+  Download, FileSpreadsheet, Upload, Users, Lock
 } from 'lucide-react';
 
 interface UserManagementProps {
@@ -33,7 +33,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const [userFormData, setUserFormData] = React.useState({
-    name: '', email: '', phoneNumber: '', placa: '', cedula: '', rfidTag: '', rfidExpiration: ''
+    name: '', email: '', password: '', phoneNumber: '', placa: '', cedula: '', rfidTag: '', rfidExpiration: ''
   });
 
   const t = translations[language];
@@ -45,7 +45,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
   );
 
   const resetForm = () => {
-    setUserFormData({ name: '', email: '', phoneNumber: '', placa: '', cedula: '', rfidTag: '', rfidExpiration: '' });
+    setUserFormData({ name: '', email: '', password: '', phoneNumber: '', placa: '', cedula: '', rfidTag: '', rfidExpiration: '' });
     setSelectedUser(null);
   };
 
@@ -59,6 +59,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
     setUserFormData({
       name: user.name,
       email: user.email,
+      password: user.password || '',
       phoneNumber: user.phoneNumber,
       placa: user.placa,
       cedula: user.cedula,
@@ -82,6 +83,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
         ...payload, 
         id: `USR-${Math.floor(Math.random() * 1000)}`, 
         balance: 0, 
+        role: 'driver',
         status: 'Active', 
         joinedDate: new Date().toISOString() 
       });
@@ -135,8 +137,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
   };
 
   const downloadTemplate = () => {
-    const headers = ['Name', 'Email', 'Phone', 'Plate', 'ID_Number', 'RFID_Tag', 'Expiry (YYYY-MM-DD)', 'Balance'];
-    const example = ['Juan Perez', 'juan@example.com', '3001234567', 'ABC-123', '10203040', 'RFID_ABC123', '2025-12-31', '0'];
+    const headers = ['Name', 'Email', 'Password', 'Phone', 'Plate', 'ID_Number', 'RFID_Tag', 'Expiry (YYYY-MM-DD)', 'Balance'];
+    const example = ['Juan Perez', 'juan@example.com', 'p@ssword', '3001234567', 'ABC-123', '10203040', 'RFID_ABC123', '2025-12-31', '0'];
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), example.join(',')].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -160,7 +162,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
       // Skip headers and empty lines
       const dataLines = lines.slice(1).filter(line => line.trim().length > 0);
       
-      const parsedUsers: Partial<User>[] = dataLines.map((line, idx) => {
+      // Fix: Explicitly type the map callback return as User | null to fix type inference errors
+      const parsedUsers = dataLines.map((line, idx): User | null => {
         // Robust CSV split that handles quoted fields
         const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(p => p.replace(/^"|"$/g, '').trim());
         
@@ -171,12 +174,14 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
           id: `USR-IMP-${Date.now()}-${idx}`,
           name: parts[0] || 'Unknown Import',
           email: parts[1] || '',
-          phoneNumber: parts[2] || '',
-          placa: parts[3] || '',
-          cedula: parts[4] || '',
-          rfidTag: parts[5] || `RFID-IMP-${idx}`,
-          rfidExpiration: parts[6] ? new Date(parts[6]).toISOString() : new Date(Date.now() + 31536000000).toISOString(),
-          balance: parseFloat(parts[7] || '0'),
+          password: parts[2] || 'password123',
+          phoneNumber: parts[3] || '',
+          placa: parts[4] || '',
+          cedula: parts[5] || '',
+          rfidTag: parts[6] || `RFID-IMP-${idx}`,
+          rfidExpiration: parts[7] ? new Date(parts[7]).toISOString() : new Date(Date.now() + 31536000000).toISOString(),
+          balance: parseFloat(parts[8] || '0'),
+          role: 'driver',
           status: 'Active',
           joinedDate: new Date().toISOString()
         };
@@ -284,7 +289,11 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-brand/10 text-brand flex items-center justify-center font-black text-base border-2 border-white shadow-sm transition-transform group-hover:scale-110">{user.name.charAt(0)}</div>
-                        <div><p className="font-black text-slate-900 leading-tight">{user.name}</p><p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{user.email}</p></div>
+                        <div>
+                          <p className="font-black text-slate-900 leading-tight">{user.name}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{user.email}</p>
+                          <p className="text-[9px] font-black uppercase text-blue-500 mt-0.5 tracking-widest">{user.role}</p>
+                        </div>
                       </div>
                     </td>
                     <td className="px-8 py-5 text-sm font-medium">
@@ -424,6 +433,13 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
                 <input type="email" placeholder="email@provider.com" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-brand/10 outline-none transition-all" value={userFormData.email} onChange={e => setUserFormData({...userFormData, email: e.target.value})} required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Password</label>
+                <div className="relative">
+                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                   <input type="password" placeholder="••••••••" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-brand/10 outline-none transition-all" value={userFormData.password} onChange={e => setUserFormData({...userFormData, password: e.target.value})} required={!isEditModalOpen} />
+                </div>
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone</label>

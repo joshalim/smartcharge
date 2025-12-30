@@ -10,6 +10,7 @@ import {
   Settings, 
   BrainCircuit,
   Users,
+  Smartphone,
   Menu,
   X
 } from 'lucide-react';
@@ -35,8 +36,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, la
     { id: 'transactions', label: t.transactions, icon: History },
     { id: 'logs', label: t.logs, icon: Terminal },
     { id: 'ai-insights', label: t.aiInsights, icon: BrainCircuit },
+    { id: 'mobile-app', label: 'User App Demo', icon: Smartphone },
     { id: 'settings', label: t.settings, icon: Settings },
   ];
+
+  // If in mobile-app view, we might want a different wrapper, 
+  // but for the demo we'll keep it inside the main layout
+  const isMobileView = activeView === 'mobile-app';
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -84,53 +90,54 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, la
       </aside>
 
       <main className="flex-1 overflow-auto relative flex flex-col">
-        <header className="h-20 bg-white border-b border-slate-200 flex items-center px-8 justify-between sticky top-0 z-20 shadow-sm">
-          <div className="flex items-center gap-6">
-             <div className="flex items-center">
-                <img 
-                  src={customLogo || "logo.png"} 
-                  alt="SMART Charge" 
-                  className="h-10 w-auto object-contain cursor-pointer hover:opacity-80 transition-opacity"
-                  onClick={() => setActiveView('dashboard')}
-                  onError={(e) => {
-                    // Only hide if we don't have a custom logo and logo.png fails
-                    if (!customLogo) (e.target as any).style.display = 'none';
-                  }}
-                />
-             </div>
-             <div className="h-8 w-px bg-slate-200 hidden md:block" />
-             <h2 className="text-xl font-bold text-slate-800 capitalize tracking-tight hidden sm:block">
-               {navItems.find(n => n.id === activeView)?.label || activeView}
-             </h2>
-          </div>
-          
-          <div className="flex items-center gap-6">
-            <div className="hidden lg:block">
-              {extraHeader}
+        {!isMobileView && (
+          <header className="h-20 bg-white border-b border-slate-200 flex items-center px-8 justify-between sticky top-0 z-20 shadow-sm">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center">
+                  <img 
+                    src={customLogo || "logo.png"} 
+                    alt="SMART Charge" 
+                    className="h-10 w-auto object-contain cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => setActiveView('dashboard')}
+                    onError={(e) => {
+                      if (!customLogo) (e.target as any).style.display = 'none';
+                    }}
+                  />
+              </div>
+              <div className="h-8 w-px bg-slate-200 hidden md:block" />
+              <h2 className="text-xl font-bold text-slate-800 capitalize tracking-tight hidden sm:block">
+                {navItems.find(n => n.id === activeView)?.label || activeView}
+              </h2>
             </div>
             
-            <div className="flex items-center bg-slate-50 rounded-xl p-1 border border-slate-200 shadow-inner">
-              <button 
-                onClick={() => setLanguage('en')}
-                className={`px-4 py-1.5 rounded-lg text-[10px] font-black tracking-widest transition-all ${language === 'en' ? 'bg-white text-blue-600 shadow-md border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                EN
-              </button>
-              <button 
-                onClick={() => setLanguage('es')}
-                className={`px-4 py-1.5 rounded-lg text-[10px] font-black tracking-widest transition-all ${language === 'es' ? 'bg-white text-blue-600 shadow-md border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                ES
-              </button>
+            <div className="flex items-center gap-6">
+              <div className="hidden lg:block">
+                {extraHeader}
+              </div>
+              
+              <div className="flex items-center bg-slate-50 rounded-xl p-1 border border-slate-200 shadow-inner">
+                <button 
+                  onClick={() => setLanguage('en')}
+                  className={`px-4 py-1.5 rounded-lg text-[10px] font-black tracking-widest transition-all ${language === 'en' ? 'bg-white text-blue-600 shadow-md border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  EN
+                </button>
+                <button 
+                  onClick={() => setLanguage('es')}
+                  className={`px-4 py-1.5 rounded-lg text-[10px] font-black tracking-widest transition-all ${language === 'es' ? 'bg-white text-blue-600 shadow-md border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  ES
+                </button>
+              </div>
+              
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-black text-white text-sm shadow-lg shadow-blue-500/20 cursor-pointer hover:scale-105 transition-transform">
+                JD
+              </div>
             </div>
-            
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-black text-white text-sm shadow-lg shadow-blue-500/20 cursor-pointer hover:scale-105 transition-transform">
-               JD
-            </div>
-          </div>
-        </header>
+          </header>
+        )}
         
-        <div className="p-8 flex-1">
+        <div className={`${isMobileView ? 'p-0 h-full' : 'p-8 flex-1'}`}>
           {children}
         </div>
       </main>

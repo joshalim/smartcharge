@@ -13,9 +13,35 @@ import { MOCK_CHARGERS as initialChargers, MOCK_USERS as initialUsers, MOCK_TRAN
 
 dotenv.config();
 
+// Enriched mock users with passwords and roles for auth demo
+const ENRICHED_USERS = initialUsers.map(u => ({
+  ...u,
+  password: 'password123',
+  role: u.id === 'USR-ADMIN' ? 'admin' : 'driver'
+}));
+
+// Add a default admin if not present
+if (!ENRICHED_USERS.find(u => u.role === 'admin')) {
+  ENRICHED_USERS.push({
+    id: 'USR-ADMIN',
+    name: 'Main Admin',
+    email: 'admin@smartcharge.com',
+    password: 'admin',
+    role: 'admin',
+    phoneNumber: '0',
+    placa: 'ADMIN',
+    cedula: '0',
+    rfidTag: 'ADMIN_001',
+    rfidExpiration: new Date(Date.now() + 315360000000).toISOString(),
+    status: 'Active',
+    joinedDate: new Date().toISOString(),
+    balance: 0
+  });
+}
+
 // Local state for Mock Mode persistence
 let chargersStore = [...initialChargers];
-let usersStore = [...initialUsers];
+let usersStore = [...ENRICHED_USERS];
 let transactionsStore = [...initialTransactions];
 let logsStore = [...initialLogs];
 let settingsStore = {
@@ -102,6 +128,49 @@ app.use(express.json({ limit: '20mb' }));
 const distPath = path.resolve(__dirname, 'dist');
 app.use(express.static(distPath));
 
+// Auth Endpoints
+app.post('/api/auth/login', (req, res) => {
+  const { email, password, role } = req.body;
+  const user = usersStore.find(u => u.email === email && u.password === password && u.role === role);
+  
+  if (user) {
+    const { password: _, ...userWithoutPassword } = user;
+    res.json(userWithoutPassword);
+  } else {
+    res.status(401).json({ error: 'Invalid credentials' });
+  }
+});
+
+app.post('/api/auth/register', (req, res) => {
+  const { email, password, name, placa, role } = req.body;
+  
+  if (usersStore.find(u => u.email === email)) {
+    return res.status(400).json({ error: 'User already exists' });
+  }
+
+  const newUser = {
+    id: `USR-${Math.floor(Math.random() * 10000)}`,
+    name,
+    email,
+    password,
+    role,
+    phoneNumber: '',
+    placa,
+    cedula: '',
+    rfidTag: `RFID-${Math.floor(Math.random() * 1000000)}`,
+    rfidExpiration: new Date(Date.now() + 31536000000).toISOString(),
+    status: 'Active',
+    joinedDate: new Date().toISOString(),
+    balance: 0
+  };
+
+  usersStore.push(newUser);
+  saveEntity('users', { id: newUser.id }, newUser);
+  
+  const { password: _, ...userWithoutPassword } = newUser;
+  res.status(201).json(userWithoutPassword);
+});
+
 app.get('/api/system/status', (req, res) => res.json({ 
   influxConnected: influxEnabled, 
   mode: influxEnabled ? 'PRODUCTION' : 'MOCK',
@@ -112,20 +181,6 @@ app.get('/api/settings', (req, res) => res.json(settingsStore));
 app.post('/api/settings', (req, res) => {
   settingsStore = { ...settingsStore, ...req.body };
   res.json(settingsStore);
-});
-
-app.post('/api/payments/payu/init', (req, res) => {
-  const { userId, amount, method } = req.body;
-  res.json({
-    status: 'success',
-    params: {
-      merchantId: '508029',
-      referenceCode: `RECHARGE-${Date.now()}`,
-      amount: amount,
-      currency: 'COP',
-      signature: 'SIMULATED_SIGNATURE'
-    }
-  });
 });
 
 app.get('/api/chargers', async (req, res) => res.json(await getLatestState('chargers', chargersStore)));

@@ -7,9 +7,11 @@ import UserManagement from './components/UserManagement';
 import OCPPLogs from './components/OCPPLogs';
 import AIAnalyst from './components/AIAnalyst';
 import Transactions from './components/Transactions';
+import UserMobileApp from './components/UserMobileApp';
+import Login from './components/Login';
 import { ViewType, Charger, Transaction, OCPPLog, User, Language } from './types';
 import { translations } from './locales/translations';
-import { Activity, AlertCircle, RefreshCw, Database, Upload, Image as ImageIcon, Save, Check, Palette, Trash2 } from 'lucide-react';
+import { Activity, AlertCircle, RefreshCw, Database, Upload, Image as ImageIcon, Save, Check, Palette, Trash2, LogOut } from 'lucide-react';
 
 export interface LiveEvent {
   id: string;
@@ -51,8 +53,21 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [dbStatus, setDbStatus] = useState<SystemStatus | null>(null);
   const [settings, setSettings] = useState<AppSettings>({ customLogo: null, payuEnabled: true, currency: 'COP', theme: 'slate' });
+  
+  // Auth State
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   const t = translations[language];
+
+  // Persistent Auth Check
+  useEffect(() => {
+    const savedUser = localStorage.getItem('smartcharge_user');
+    if (savedUser) {
+      const user = JSON.parse(savedUser);
+      setCurrentUser(user);
+      setActiveView(user.role === 'admin' ? 'dashboard' : 'mobile-app');
+    }
+  }, []);
 
   // Global Theme Injection
   useEffect(() => {
@@ -113,13 +128,51 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 8000); 
-    return () => clearInterval(interval);
-  }, []);
+    if (currentUser) {
+      fetchData();
+      const interval = setInterval(fetchData, 8000); 
+      return () => clearInterval(interval);
+    }
+  }, [currentUser]);
 
   const addEvent = (type: LiveEvent['type'], message: string) => {
     setLiveEvents(prev => [{ id: Math.random().toString(), timestamp: new Date().toISOString(), type, message }, ...prev].slice(0, 15));
+  };
+
+  const handleLogin = async (credentials: any) => {
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials)
+      });
+      if (res.ok) {
+        const user = await res.json();
+        setCurrentUser(user);
+        localStorage.setItem('smartcharge_user', JSON.stringify(user));
+        setActiveView(user.role === 'admin' ? 'dashboard' : 'mobile-app');
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  };
+
+  const handleRegister = async (data: any) => {
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      return res.ok;
+    } catch (e) {}
+    return false;
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('smartcharge_user');
+    setActiveView('auth');
   };
 
   const handleUpdateSettings = async (newSettings: Partial<AppSettings>) => {
@@ -229,8 +282,19 @@ const App: React.FC = () => {
       <div className="flex items-center gap-2 text-sm text-slate-500 font-medium bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
         <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> {t.serverOnline}
       </div>
+      <button 
+        onClick={handleLogout}
+        className="flex items-center gap-2 p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-all"
+        title="Logout"
+      >
+        <LogOut size={20} />
+      </button>
     </div>
   );
+
+  if (!currentUser) {
+    return <Login onLogin={handleLogin} onRegister={handleRegister} language={language} />;
+  }
 
   if (error && chargers.length === 0) {
     return (
@@ -360,6 +424,12 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     if (isLoading && chargers.length === 0) return <div className="flex items-center justify-center h-[60vh]"><Activity size={48} className="text-brand animate-pulse" /></div>;
+    
+    // Only allow admin to see CMS views
+    if (currentUser.role === 'driver' && activeView !== 'mobile-app') {
+       setActiveView('mobile-app');
+    }
+
     switch (activeView) {
       case 'dashboard': return <Dashboard chargers={chargers} transactions={transactions} liveEvents={liveEvents} language={language} isLive={dbStatus?.influxConnected} />;
       case 'chargers': return <ChargerList chargers={chargers} onRemoteAction={handleRemoteAction} onAddCharger={handleAddCharger} onEditCharger={handleEditCharger} onDeleteCharger={handleDeleteCharger} language={language} />;
@@ -367,6 +437,14 @@ const App: React.FC = () => {
       case 'transactions': return <Transactions transactions={transactions} language={language} />;
       case 'logs': return <OCPPLogs logs={logs} />;
       case 'ai-insights': return <AIAnalyst chargers={chargers} logs={logs} language={language} />;
+      case 'mobile-app': return <UserMobileApp 
+        chargers={chargers} 
+        currentUser={currentUser} 
+        transactions={transactions} 
+        onRemoteStart={(id) => handleRemoteAction(id, 'start')}
+        onTopUp={(amt) => handleEditUser(currentUser.id, { balance: currentUser.balance + amt })}
+        language={language}
+      />;
       case 'settings': return <SettingsView />;
       default: return null;
     }

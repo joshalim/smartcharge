@@ -71,6 +71,7 @@ export const MOCK_USERS: User[] = [
     cedula: '1.020.344.551',
     rfidTag: 'RFID_A7B2991',
     rfidExpiration: '2025-12-31T23:59:59Z',
+    role: 'driver',
     status: 'Active',
     joinedDate: '2023-10-12',
     balance: 180000.00
@@ -84,6 +85,7 @@ export const MOCK_USERS: User[] = [
     cedula: '1.098.765.432',
     rfidTag: 'RFID_82CC104',
     rfidExpiration: '2026-01-01T00:00:00Z',
+    role: 'driver',
     status: 'Active',
     joinedDate: '2024-01-05',
     balance: 48800.00
@@ -97,6 +99,7 @@ export const MOCK_USERS: User[] = [
     cedula: '80.123.456',
     rfidTag: 'RFID_F009D12',
     rfidExpiration: '2024-05-20T23:59:59Z',
+    role: 'driver',
     status: 'Blocked',
     joinedDate: '2023-11-20',
     balance: -20000.00
