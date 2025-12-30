@@ -21,7 +21,8 @@ let logsStore = [...initialLogs];
 let settingsStore = {
   customLogo: null, // Base64 string
   payuEnabled: true,
-  currency: 'COP'
+  currency: 'COP',
+  theme: 'slate' // slate, emerald, amber, midnight
 };
 
 const __filename = fileURLToPath(import.meta.url);
@@ -124,13 +125,11 @@ app.post('/api/settings', (req, res) => {
 // PayU Colombia Simulated Integration
 app.post('/api/payments/payu/init', (req, res) => {
   const { userId, amount, method } = req.body;
-  // In a real PayU integration, we would generate a signature here and return form parameters or a redirect URL
-  // Reference: https://developers.payulatam.com/latam/en/docs/integrations/api-integration.html
   console.log(`Initializing PayU payment for user ${userId}, amount ${amount} via ${method}`);
   
   res.json({
     status: 'success',
-    checkoutUrl: 'https://sandbox.checkout.payulatam.com/checkout/payment.do', // Mock sandbox URL
+    checkoutUrl: 'https://sandbox.checkout.payulatam.com/checkout/payment.do',
     params: {
       merchantId: '508029',
       accountId: '512321',

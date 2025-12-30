@@ -64,6 +64,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
     }
     setIsModalOpen(false);
     setIsEditModalOpen(false);
+    setUserFormData({ name: '', email: '', phoneNumber: '', placa: '', cedula: '', rfidTag: '', rfidExpiration: '' });
   };
 
   const handleOpenTopUp = (user: User) => { 
@@ -71,6 +72,20 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
     setIsTopUpModalOpen(true); 
     setPaymentStatus('idle'); 
     setSelectedMethod(null);
+  };
+
+  const handleOpenEdit = (user: User) => {
+    setSelectedUser(user);
+    setUserFormData({
+      name: user.name,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      placa: user.placa,
+      cedula: user.cedula,
+      rfidTag: user.rfidTag,
+      rfidExpiration: user.rfidExpiration.split('T')[0]
+    });
+    setIsEditModalOpen(true);
   };
 
   const handleInitiatePayU = async () => {
@@ -197,7 +212,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
                   <td className="px-6 py-4 text-right font-black text-slate-900 text-sm font-mono">{t.currencySymbol}{user.balance.toLocaleString()}</td>
                   <td className="px-6 py-4 text-center">
                     <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => { setSelectedUser(user); setUserFormData({ ...user, rfidExpiration: user.rfidExpiration.split('T')[0] }); setIsEditModalOpen(true); }} className="p-2 rounded-lg border border-slate-100 bg-white hover:text-blue-600 shadow-sm transition-all hover:scale-110"><Pencil size={18} /></button>
+                      <button onClick={() => handleOpenEdit(user)} className="p-2 rounded-lg border border-slate-100 bg-white hover:text-blue-600 shadow-sm transition-all hover:scale-110"><Pencil size={18} /></button>
                       <button onClick={() => handleOpenTopUp(user)} className="p-2 rounded-lg border border-slate-100 bg-white hover:text-emerald-600 shadow-sm transition-all hover:scale-110"><Wallet size={18} /></button>
                     </div>
                   </td>
@@ -331,7 +346,51 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
         </div>
       )}
 
-      {/* Other user modals (Add/Edit) would go here (truncated for space) */}
+      {/* Add / Edit User Modal */}
+      {(isModalOpen || isEditModalOpen) && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-t-[32px]">
+              <h3 className="text-2xl font-black text-slate-900">{isEditModalOpen ? t.editUser : t.addUser}</h3>
+              <button onClick={() => { setIsModalOpen(false); setIsEditModalOpen(false); }} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X size={20} className="text-slate-400" /></button>
+            </div>
+            <form className="p-8 grid grid-cols-2 gap-4" onSubmit={handleUserSubmit}>
+              <div className="col-span-2 space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
+                <input placeholder="Ex: Alejandro Rivera" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 outline-none transition-all" value={userFormData.name} onChange={e => setUserFormData({...userFormData, name: e.target.value})} required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
+                <input type="email" placeholder="email@provider.com" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 outline-none transition-all" value={userFormData.email} onChange={e => setUserFormData({...userFormData, email: e.target.value})} required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone</label>
+                <input placeholder="+57 3..." className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 outline-none transition-all" value={userFormData.phoneNumber} onChange={e => setUserFormData({...userFormData, phoneNumber: e.target.value})} required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Plate</label>
+                <input placeholder="ABC-123" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 outline-none transition-all" value={userFormData.placa} onChange={e => setUserFormData({...userFormData, placa: e.target.value})} required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ID Number</label>
+                <input placeholder="CC / ID" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 outline-none transition-all" value={userFormData.cedula} onChange={e => setUserFormData({...userFormData, cedula: e.target.value})} required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">RFID Tag</label>
+                <input placeholder="RFID_..." className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-mono" value={userFormData.rfidTag} onChange={e => setUserFormData({...userFormData, rfidTag: e.target.value})} required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">RFID Expiration</label>
+                <input type="date" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 outline-none transition-all" value={userFormData.rfidExpiration} onChange={e => setUserFormData({...userFormData, rfidExpiration: e.target.value})} required />
+              </div>
+              <div className="col-span-2 flex gap-3 pt-6">
+                <button type="button" onClick={() => { setIsModalOpen(false); setIsEditModalOpen(false); }} className="flex-1 py-4 bg-slate-100 font-bold rounded-2xl hover:bg-slate-200 transition-all active:scale-95">Cancel</button>
+                <button type="submit" className="flex-1 py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 active:scale-95">Save User</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
