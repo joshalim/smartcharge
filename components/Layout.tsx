@@ -21,9 +21,10 @@ interface LayoutProps {
   setActiveView: (view: ViewType) => void;
   language: Language;
   setLanguage: (lang: Language) => void;
+  extraHeader?: React.ReactNode;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, language, setLanguage }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, language, setLanguage, extraHeader }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
   const t = translations[language];
 
@@ -105,6 +106,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, la
              </h2>
           </div>
           <div className="flex items-center gap-6">
+            {extraHeader}
             <div className="flex items-center bg-slate-100 rounded-lg p-1 border border-slate-200">
               <button 
                 onClick={() => setLanguage('en')}
@@ -118,10 +120,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, la
               >
                 ES
               </button>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-slate-500 font-medium bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
-               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
-               {t.serverOnline}
             </div>
             <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center font-bold text-blue-600">
                JD
