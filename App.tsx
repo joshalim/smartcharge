@@ -181,6 +181,17 @@ const App: React.FC = () => {
     } catch (e) { addEvent('error', 'Failed to add user.'); }
   };
 
+  const handleBulkAddUsers = async (usersToImport: Partial<User>[]) => {
+    try {
+      const res = await fetch('/api/users/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(usersToImport) });
+      if (res.ok) {
+        const result = await res.json();
+        addEvent('success', `${result.count} users imported successfully.`);
+        fetchData();
+      }
+    } catch (e) { addEvent('error', 'Failed to import users.'); }
+  };
+
   const handleDeleteUser = async (id: string) => {
     try {
       const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
@@ -352,7 +363,7 @@ const App: React.FC = () => {
     switch (activeView) {
       case 'dashboard': return <Dashboard chargers={chargers} transactions={transactions} liveEvents={liveEvents} language={language} isLive={dbStatus?.influxConnected} />;
       case 'chargers': return <ChargerList chargers={chargers} onRemoteAction={handleRemoteAction} onAddCharger={handleAddCharger} onEditCharger={handleEditCharger} onDeleteCharger={handleDeleteCharger} language={language} />;
-      case 'users': return <UserManagement users={users} onAddUser={handleAddUser} onBulkAddUsers={() => {}} onEditUser={handleEditUser} onUpdateStatus={handleEditUser} onDeleteUser={handleDeleteUser} onTopUp={(id, amt) => { const u = users.find(u => u.id === id); if(u) handleEditUser(id, { balance: u.balance + amt }); }} language={language} />;
+      case 'users': return <UserManagement users={users} onAddUser={handleAddUser} onBulkAddUsers={handleBulkAddUsers} onEditUser={handleEditUser} onUpdateStatus={handleEditUser} onDeleteUser={handleDeleteUser} onTopUp={(id, amt) => { const u = users.find(u => u.id === id); if(u) handleEditUser(id, { balance: u.balance + amt }); }} language={language} />;
       case 'transactions': return <Transactions transactions={transactions} language={language} />;
       case 'logs': return <OCPPLogs logs={logs} />;
       case 'ai-insights': return <AIAnalyst chargers={chargers} logs={logs} language={language} />;

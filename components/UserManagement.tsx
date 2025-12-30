@@ -5,7 +5,8 @@ import { translations } from '../locales/translations';
 import { 
   Plus, ShieldAlert, CheckCircle2, Search, Wallet, X, Loader2, 
   Smartphone, Zap, CarFront, Pencil, AlertCircle, FileUp, 
-  Calendar, Check, CreditCard, Building2, ExternalLink, Trash2
+  Calendar, Check, CreditCard, Building2, ExternalLink, Trash2,
+  Download, FileSpreadsheet, Upload, Users
 } from 'lucide-react';
 
 interface UserManagementProps {
@@ -29,7 +30,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
   const [selectedMethod, setSelectedMethod] = React.useState<string | null>(null);
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [paymentStatus, setPaymentStatus] = React.useState<'idle' | 'initiating' | 'checkout' | 'success' | 'error'>('idle');
-  const [payuParams, setPayuParams] = React.useState<any>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const [userFormData, setUserFormData] = React.useState({
     name: '', email: '', phoneNumber: '', placa: '', cedula: '', rfidTag: '', rfidExpiration: ''
@@ -97,31 +98,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
     setSelectedMethod(null);
   };
 
-  const handleInitiatePayU = async () => {
-    if (!selectedUser || !selectedMethod) return;
-    setIsProcessing(true);
-    setPaymentStatus('initiating');
-
-    try {
-      const res = await fetch('/api/payments/payu/init', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: selectedUser.id, amount: parseFloat(topUpAmount), method: selectedMethod })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setPayuParams(data.params);
-        setPaymentStatus('checkout');
-      } else {
-        setPaymentStatus('error');
-      }
-    } catch (e) {
-      setPaymentStatus('error');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   const simulateSuccess = () => {
     setIsProcessing(true);
     setTimeout(() => {
@@ -130,6 +106,84 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
       setIsProcessing(false);
       setTimeout(() => setIsTopUpModalOpen(false), 2000);
     }, 1500);
+  };
+
+  const exportToCSV = () => {
+    const headers = ['Name', 'Email', 'Phone', 'Plate', 'ID_Number', 'RFID_Tag', 'Expiry', 'Balance', 'Status'];
+    const rows = filteredUsers.map(u => [
+      u.name,
+      u.email,
+      u.phoneNumber,
+      u.placa,
+      u.cedula,
+      u.rfidTag,
+      u.rfidExpiration.split('T')[0],
+      u.balance,
+      u.status
+    ]);
+    
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + [headers.join(','), ...rows.map(r => r.map(cell => `"${cell}"`).join(','))].join('\n');
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `users_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const downloadTemplate = () => {
+    const headers = ['Name', 'Email', 'Phone', 'Plate', 'ID_Number', 'RFID_Tag', 'Expiry (YYYY-MM-DD)', 'Balance'];
+    const example = ['Juan Perez', 'juan@example.com', '3001234567', 'ABC-123', '10203040', 'RFID_ABC123', '2025-12-31', '0'];
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), example.join(',')].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "user_import_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target?.result as string;
+      if (!text) return;
+
+      const lines = text.split('\n');
+      const dataLines = lines.slice(1).filter(line => line.trim().length > 0);
+      
+      const parsedUsers: Partial<User>[] = dataLines.map((line, idx) => {
+        // Basic CSV parsing handling potential quotes
+        const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(p => p.replace(/^"|"$/g, '').trim());
+        
+        return {
+          id: `USR-IMP-${Date.now()}-${idx}`,
+          name: parts[0] || 'Unknown Import',
+          email: parts[1] || '',
+          phoneNumber: parts[2] || '',
+          placa: parts[3] || '',
+          cedula: parts[4] || '',
+          rfidTag: parts[5] || `RFID-IMP-${idx}`,
+          rfidExpiration: parts[6] ? new Date(parts[6]).toISOString() : new Date(Date.now() + 31536000000).toISOString(),
+          balance: parseFloat(parts[7] || '0'),
+          status: 'Active',
+          joinedDate: new Date().toISOString()
+        };
+      });
+
+      if (parsedUsers.length > 0) {
+        onBulkAddUsers(parsedUsers);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
   };
 
   const getExpiryLabel = (dateStr: string) => {
@@ -150,74 +204,122 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between gap-4">
+      <div className="flex flex-col lg:flex-row justify-between gap-4">
         <div className="relative flex-1 max-w-md w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input 
             type="text" 
             placeholder={t.searchPlaceholder} 
-            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-brand/10 outline-none transition-all shadow-sm" 
+            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-brand/10 outline-none transition-all shadow-sm" 
             value={searchTerm} 
             onChange={(e) => setSearchTerm(e.target.value)} 
           />
         </div>
-        <div className="flex gap-2 w-full md:w-auto">
-          <button onClick={handleOpenAdd} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-brand text-white font-bold rounded-xl shadow-brand active:scale-95 transition-all">
+        
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm">
+             <button 
+                onClick={exportToCSV}
+                className="flex items-center gap-2 px-4 py-2 text-xs font-black text-slate-600 hover:text-brand transition-all"
+                title={t.exportCsv}
+             >
+                <Download size={16} />
+                <span className="hidden sm:inline">{t.exportCsv}</span>
+             </button>
+             <div className="w-px h-6 bg-slate-100 my-auto mx-1" />
+             <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 px-4 py-2 text-xs font-black text-slate-600 hover:text-emerald-600 transition-all"
+                title={t.importCsv}
+             >
+                <Upload size={16} />
+                <span className="hidden sm:inline">{t.importCsv}</span>
+             </button>
+             <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept=".csv" 
+                onChange={handleImportCSV} 
+             />
+             <div className="w-px h-6 bg-slate-100 my-auto mx-1" />
+             <button 
+                onClick={downloadTemplate}
+                className="flex items-center gap-2 px-4 py-2 text-xs font-black text-slate-400 hover:text-slate-900 transition-all"
+                title={t.downloadTemplate}
+             >
+                <FileSpreadsheet size={16} />
+             </button>
+          </div>
+
+          <button onClick={handleOpenAdd} className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-brand text-white font-black rounded-2xl shadow-brand active:scale-95 transition-all">
             <Plus size={18} /> {t.addUser}
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden overflow-x-auto">
+      <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden overflow-x-auto">
         <table className="w-full text-left">
           <thead>
             <tr className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              <th className="px-6 py-4">User</th>
-              <th className="px-6 py-4">Plate / ID</th>
-              <th className="px-6 py-4">RFID Card</th>
-              <th className="px-6 py-4">RFID Expiry</th>
-              <th className="px-6 py-4">Status</th>
-              <th className="px-6 py-4 text-right">Balance</th>
-              <th className="px-6 py-4 text-center">Actions</th>
+              <th className="px-8 py-5">User</th>
+              <th className="px-8 py-5">Plate / ID</th>
+              <th className="px-8 py-5">RFID Card</th>
+              <th className="px-8 py-5">RFID Expiry</th>
+              <th className="px-8 py-5">Status</th>
+              <th className="px-8 py-5 text-right">Balance</th>
+              <th className="px-8 py-5 text-center">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {filteredUsers.map((user) => {
-              const expiry = getExpiryLabel(user.rfidExpiration);
-              return (
-                <tr key={user.id} className="hover:bg-brand/5 group transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-brand/10 text-brand flex items-center justify-center font-black text-sm border-2 border-white shadow-sm">{user.name.charAt(0)}</div>
-                      <div><p className="font-bold text-slate-900">{user.name}</p><p className="text-[10px] text-slate-400 font-medium">{user.email}</p></div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium">
-                    <div className="flex items-center gap-2"><CarFront size={14} className="text-brand" /> {user.placa}</div>
-                    <div className="text-[10px] text-slate-400 font-mono mt-0.5">{user.cedula}</div>
-                  </td>
-                  <td className="px-6 py-4"><span className="font-mono text-[10px] font-black bg-slate-100 px-2 py-1 rounded border border-slate-200">{user.rfidTag}</span></td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black border flex items-center gap-1 w-fit ${expiry.color}`}>
-                       <Calendar size={10} /> {expiry.label}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <button onClick={() => onUpdateStatus(user.id, { status: user.status === 'Active' ? 'Blocked' : 'Active' })} className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1 border transition-all active:scale-95 ${user.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>
-                      {user.status === 'Active' ? <CheckCircle2 size={12} /> : <ShieldAlert size={12} />} {user.status === 'Active' ? t.active : t.blocked}
-                    </button>
-                  </td>
-                  <td className="px-6 py-4 text-right font-black text-slate-900 text-sm font-mono">{t.currencySymbol}{user.balance.toLocaleString()}</td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => handleOpenEdit(user)} className="p-2 rounded-lg border border-slate-100 bg-white hover:text-brand shadow-sm transition-all hover:scale-110"><Pencil size={18} /></button>
-                      <button onClick={() => handleOpenTopUp(user)} className="p-2 rounded-lg border border-slate-100 bg-white hover:text-emerald-600 shadow-sm transition-all hover:scale-110"><Wallet size={18} /></button>
-                      <button onClick={() => { if(window.confirm('Delete user?')) onDeleteUser(user.id); }} className="p-2 rounded-lg border border-slate-100 bg-white hover:text-rose-600 shadow-sm transition-all hover:scale-110"><Trash2 size={18} /></button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+            {filteredUsers.length > 0 ? (
+              filteredUsers.map((user) => {
+                const expiry = getExpiryLabel(user.rfidExpiration);
+                return (
+                  <tr key={user.id} className="hover:bg-brand/5 group transition-colors">
+                    <td className="px-8 py-5">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-brand/10 text-brand flex items-center justify-center font-black text-base border-2 border-white shadow-sm transition-transform group-hover:scale-110">{user.name.charAt(0)}</div>
+                        <div><p className="font-black text-slate-900 leading-tight">{user.name}</p><p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{user.email}</p></div>
+                      </div>
+                    </td>
+                    <td className="px-8 py-5 text-sm font-medium">
+                      <div className="flex items-center gap-2"><CarFront size={14} className="text-brand" /> <span className="font-black tracking-tight">{user.placa}</span></div>
+                      <div className="text-[10px] text-slate-400 font-mono mt-1 tracking-wider">{user.cedula}</div>
+                    </td>
+                    <td className="px-8 py-5"><span className="font-mono text-[10px] font-black bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 shadow-inner">{user.rfidTag}</span></td>
+                    <td className="px-8 py-5">
+                      <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black border flex items-center gap-1.5 w-fit ${expiry.color} shadow-sm`}>
+                         <Calendar size={12} /> {expiry.label}
+                      </span>
+                    </td>
+                    <td className="px-8 py-5">
+                      <button onClick={() => onUpdateStatus(user.id, { status: user.status === 'Active' ? 'Blocked' : 'Active' })} className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 border transition-all active:scale-95 shadow-sm ${user.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>
+                        {user.status === 'Active' ? <CheckCircle2 size={12} /> : <ShieldAlert size={12} />} {user.status === 'Active' ? t.active : t.blocked}
+                      </button>
+                    </td>
+                    <td className="px-8 py-5 text-right font-black text-slate-900 text-sm font-mono">{t.currencySymbol}{user.balance.toLocaleString()}</td>
+                    <td className="px-8 py-5 text-center">
+                      <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                        <button onClick={() => handleOpenEdit(user)} className="p-2.5 rounded-xl border border-slate-100 bg-white hover:text-brand shadow-sm transition-all hover:scale-110"><Pencil size={18} /></button>
+                        <button onClick={() => handleOpenTopUp(user)} className="p-2.5 rounded-xl border border-slate-100 bg-white hover:text-emerald-600 shadow-sm transition-all hover:scale-110"><Wallet size={18} /></button>
+                        <button onClick={() => { if(window.confirm('Delete user?')) onDeleteUser(user.id); }} className="p-2.5 rounded-xl border border-slate-100 bg-white hover:text-rose-600 shadow-sm transition-all hover:scale-110"><Trash2 size={18} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={7} className="px-8 py-20 text-center">
+                  <div className="flex flex-col items-center opacity-40">
+                    {/* Fix: Added missing 'Users' icon from lucide-react */}
+                    <Users size={64} className="text-slate-300 mb-6" />
+                    <p className="font-black uppercase tracking-widest text-slate-400">No users found</p>
+                  </div>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
