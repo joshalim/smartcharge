@@ -64,7 +64,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
       placa: user.placa,
       cedula: user.cedula,
       rfidTag: user.rfidTag,
-      rfidExpiration: user.rfidExpiration.split('T')[0]
+      rfidExpiration: user.rfidExpiration ? user.rfidExpiration.split('T')[0] : ''
     });
     setIsEditModalOpen(true);
   };
@@ -73,7 +73,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
     e.preventDefault();
     const payload = { 
       ...userFormData, 
-      rfidExpiration: new Date(userFormData.rfidExpiration).toISOString() 
+      rfidExpiration: userFormData.rfidExpiration ? new Date(userFormData.rfidExpiration).toISOString() : new Date(Date.now() + 31536000000).toISOString()
     };
     
     if (isEditModalOpen && selectedUser) {
@@ -137,8 +137,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
   };
 
   const downloadTemplate = () => {
+    // Template column order: Name, Email, Password, Phone, Plate, ID_Number, RFID_Tag, Expiry, Balance
     const headers = ['Name', 'Email', 'Password', 'Phone', 'Plate', 'ID_Number', 'RFID_Tag', 'Expiry (YYYY-MM-DD)', 'Balance'];
-    const example = ['Juan Perez', 'juan@example.com', 'p@ssword', '3001234567', 'ABC-123', '10203040', 'RFID_ABC123', '2025-12-31', '0'];
+    const example = ['Juan Perez', 'juan@example.com', 'password123', '3001234567', 'ABC-123', '1020304050', 'RFID_99881', '2025-12-31', '50000'];
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), example.join(',')].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -162,25 +163,36 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
       // Skip headers and empty lines
       const dataLines = lines.slice(1).filter(line => line.trim().length > 0);
       
-      // Fix: Explicitly type the map callback return as User | null to fix type inference errors
       const parsedUsers = dataLines.map((line, idx): User | null => {
         // Robust CSV split that handles quoted fields
         const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(p => p.replace(/^"|"$/g, '').trim());
         
-        // If the line is mostly empty, skip it
-        if (parts.length < 3) return null;
+        // Basic validation: skip if we don't have at least Name and Email
+        if (parts.length < 2) return null;
+
+        // Defensive Date Parsing
+        const parseDate = (val: string) => {
+          const d = new Date(val);
+          return isNaN(d.getTime()) ? new Date(Date.now() + 31536000000).toISOString() : d.toISOString();
+        };
+
+        // Defensive Numeric Parsing
+        const parseNum = (val: string) => {
+          const n = parseFloat(val);
+          return isNaN(n) ? 0 : n;
+        };
 
         return {
           id: `USR-IMP-${Date.now()}-${idx}`,
           name: parts[0] || 'Unknown Import',
-          email: parts[1] || '',
+          email: parts[1] || `import_${idx}@local.host`,
           password: parts[2] || 'password123',
           phoneNumber: parts[3] || '',
           placa: parts[4] || '',
           cedula: parts[5] || '',
-          rfidTag: parts[6] || `RFID-IMP-${idx}`,
-          rfidExpiration: parts[7] ? new Date(parts[7]).toISOString() : new Date(Date.now() + 31536000000).toISOString(),
-          balance: parseFloat(parts[8] || '0'),
+          rfidTag: parts[6] || `RFID-IMP-${Math.floor(Math.random()*10000)}`,
+          rfidExpiration: parseDate(parts[7] || ''),
+          balance: parseNum(parts[8] || '0'),
           role: 'driver',
           status: 'Active',
           joinedDate: new Date().toISOString()
@@ -196,6 +208,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
   };
 
   const getExpiryLabel = (dateStr: string) => {
+    if (!dateStr) return { label: 'No Expiry', color: 'bg-slate-100 text-slate-600 border-slate-200' };
     const exp = new Date(dateStr);
     const now = new Date();
     const diffDays = (exp.getTime() - now.getTime()) / (1000 * 3600 * 24);
