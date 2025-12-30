@@ -43,22 +43,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, la
         ${isSidebarOpen ? 'w-64' : 'w-20'} 
         bg-slate-900 text-white transition-all duration-300 flex flex-col h-full border-r border-slate-800
       `}>
-        <div className="p-4 flex items-center justify-center border-b border-slate-800/50 h-24 overflow-hidden bg-white">
-          {isSidebarOpen ? (
-            <img 
-              src="logo.png" 
-              alt="SMART Charge" 
-              className="h-auto max-w-[80%] object-contain transition-all duration-300"
-              onError={(e) => {
-                // Fallback in case image isn't found
-                (e.target as any).style.display = 'none';
-              }}
-            />
-          ) : (
-             <div className="w-10 h-10 border-2 border-blue-500 rounded-lg flex items-center justify-center mx-auto">
-               <Zap size={18} className="text-blue-500 fill-blue-500" />
-            </div>
-          )}
+        <div className="p-4 flex items-center justify-center border-b border-slate-800/50 h-24 bg-slate-900">
+          <div className="w-12 h-12 border-2 border-blue-500 rounded-xl flex items-center justify-center bg-slate-800 shadow-inner">
+             <Zap size={24} className="text-blue-500 fill-blue-500" />
+          </div>
+          {isSidebarOpen && <span className="ml-3 font-black text-xl tracking-tighter text-white">ADMIN</span>}
         </div>
 
         <nav className="flex-1 mt-6 px-3 space-y-2">
@@ -86,42 +75,60 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, la
         <div className="p-4 border-t border-slate-800">
           <button 
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="w-full flex justify-center text-slate-500 hover:text-white transition-colors"
+            className="w-full flex justify-center text-slate-500 hover:text-white transition-colors p-2 rounded-lg hover:bg-slate-800"
           >
             {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto relative">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center px-8 justify-between sticky top-0 z-10">
-          <div className="flex items-center gap-4">
-             <h2 className="text-lg font-semibold text-slate-800 capitalize">
+      <main className="flex-1 overflow-auto relative flex flex-col">
+        <header className="h-20 bg-white border-b border-slate-200 flex items-center px-8 justify-between sticky top-0 z-20 shadow-sm">
+          <div className="flex items-center gap-6">
+             <div className="flex items-center">
+                <img 
+                  src="logo.png" 
+                  alt="SMART Charge" 
+                  className="h-10 w-auto object-contain cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => setActiveView('dashboard')}
+                  onError={(e) => {
+                    (e.target as any).style.display = 'none';
+                  }}
+                />
+             </div>
+             <div className="h-8 w-px bg-slate-200 hidden md:block" />
+             <h2 className="text-xl font-bold text-slate-800 capitalize tracking-tight hidden sm:block">
                {navItems.find(n => n.id === activeView)?.label || activeView}
              </h2>
           </div>
+          
           <div className="flex items-center gap-6">
-            {extraHeader}
-            <div className="flex items-center bg-slate-100 rounded-lg p-1 border border-slate-200">
+            <div className="hidden lg:block">
+              {extraHeader}
+            </div>
+            
+            <div className="flex items-center bg-slate-50 rounded-xl p-1 border border-slate-200 shadow-inner">
               <button 
                 onClick={() => setLanguage('en')}
-                className={`px-3 py-1 rounded text-xs font-bold transition-all ${language === 'en' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`px-4 py-1.5 rounded-lg text-[10px] font-black tracking-widest transition-all ${language === 'en' ? 'bg-white text-blue-600 shadow-md border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
               >
                 EN
               </button>
               <button 
                 onClick={() => setLanguage('es')}
-                className={`px-3 py-1 rounded text-xs font-bold transition-all ${language === 'es' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`px-4 py-1.5 rounded-lg text-[10px] font-black tracking-widest transition-all ${language === 'es' ? 'bg-white text-blue-600 shadow-md border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
               >
                 ES
               </button>
             </div>
-            <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center font-bold text-blue-600">
+            
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-black text-white text-sm shadow-lg shadow-blue-500/20 cursor-pointer hover:scale-105 transition-transform">
                JD
             </div>
           </div>
         </header>
-        <div className="p-8">
+        
+        <div className="p-8 flex-1">
           {children}
         </div>
       </main>
