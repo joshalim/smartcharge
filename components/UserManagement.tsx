@@ -156,13 +156,17 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
       const text = evt.target?.result as string;
       if (!text) return;
 
-      const lines = text.split('\n');
+      const lines = text.split(/\r?\n/);
+      // Skip headers and empty lines
       const dataLines = lines.slice(1).filter(line => line.trim().length > 0);
       
       const parsedUsers: Partial<User>[] = dataLines.map((line, idx) => {
-        // Basic CSV parsing handling potential quotes
+        // Robust CSV split that handles quoted fields
         const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(p => p.replace(/^"|"$/g, '').trim());
         
+        // If the line is mostly empty, skip it
+        if (parts.length < 3) return null;
+
         return {
           id: `USR-IMP-${Date.now()}-${idx}`,
           name: parts[0] || 'Unknown Import',
@@ -176,7 +180,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
           status: 'Active',
           joinedDate: new Date().toISOString()
         };
-      });
+      }).filter((u): u is User => u !== null);
 
       if (parsedUsers.length > 0) {
         onBulkAddUsers(parsedUsers);
@@ -313,7 +317,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBul
               <tr>
                 <td colSpan={7} className="px-8 py-20 text-center">
                   <div className="flex flex-col items-center opacity-40">
-                    {/* Fix: Added missing 'Users' icon from lucide-react */}
                     <Users size={64} className="text-slate-300 mb-6" />
                     <p className="font-black uppercase tracking-widest text-slate-400">No users found</p>
                   </div>

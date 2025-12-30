@@ -97,7 +97,7 @@ async function getLatestState(measurement, localStore) {
   }
 }
 
-// Increase JSON limit for base64 images
+// Increase JSON limit for base64 images and large CSV imports
 app.use(express.json({ limit: '20mb' }));
 const distPath = path.resolve(__dirname, 'dist');
 app.use(express.static(distPath));
@@ -172,6 +172,25 @@ app.delete('/api/users/:id', (req, res) => {
   const id = req.params.id;
   usersStore = usersStore.filter(u => u.id !== id);
   res.status(204).send();
+});
+
+// Bulk User Import Endpoint
+app.post('/api/users/bulk', async (req, res) => {
+  const usersToImport = req.body;
+  if (!Array.isArray(usersToImport)) return res.status(400).json({ error: 'Expected an array of users' });
+
+  let count = 0;
+  for (const user of usersToImport) {
+    const index = usersStore.findIndex(u => u.rfidTag === user.rfidTag || u.id === user.id);
+    if (index !== -1) {
+      usersStore[index] = { ...usersStore[index], ...user };
+    } else {
+      usersStore.push(user);
+    }
+    await saveEntity('users', { id: user.id }, user);
+    count++;
+  }
+  res.json({ count });
 });
 
 app.get('/api/transactions', async (req, res) => res.json(await getLatestState('transactions', transactionsStore)));
