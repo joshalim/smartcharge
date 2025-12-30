@@ -92,7 +92,14 @@ export const translations = {
     connectorType: "Connector Type",
     addConnector: "Add Connector",
     expiryWarning: "Nearing Expiry",
-    expiryCritical: "Expired Card"
+    expiryCritical: "Expired Card",
+    changePassword: "Change Password",
+    currentPassword: "Current Password",
+    newPassword: "New Password",
+    confirmPassword: "Confirm New Password",
+    updatePassword: "Update Password",
+    passwordMatchError: "Passwords do not match",
+    passwordUpdateSuccess: "Password updated successfully"
   },
   es: {
     dashboard: "Centro de Comando",
@@ -186,6 +193,13 @@ export const translations = {
     connectorType: "Tipo de Conector",
     addConnector: "Añadir Conector",
     expiryWarning: "Vence pronto",
-    expiryCritical: "Tarjeta Expirada"
+    expiryCritical: "Tarjeta Expirada",
+    changePassword: "Cambiar Contraseña",
+    currentPassword: "Contraseña Actual",
+    newPassword: "Nueva Contraseña",
+    confirmPassword: "Confirmar Nueva Contraseña",
+    updatePassword: "Actualizar Contraseña",
+    passwordMatchError: "Las contraseñas no coinciden",
+    passwordUpdateSuccess: "Contraseña actualizada exitosamente"
   }
 };

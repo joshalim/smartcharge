@@ -16,7 +16,7 @@ dotenv.config();
 // Enriched mock users with passwords and roles for auth demo
 const ENRICHED_USERS = initialUsers.map(u => ({
   ...u,
-  password: 'password123',
+  password: u.email === 'alex.r@voltmail.com' ? 'password123' : (u.password || 'password123'),
   role: u.id === 'USR-ADMIN' ? 'admin' : 'driver'
 }));
 
@@ -169,6 +169,23 @@ app.post('/api/auth/register', (req, res) => {
   
   const { password: _, ...userWithoutPassword } = newUser;
   res.status(201).json(userWithoutPassword);
+});
+
+app.post('/api/auth/change-password', (req, res) => {
+  const { userId, currentPassword, newPassword } = req.body;
+  const userIndex = usersStore.findIndex(u => u.id === userId);
+  
+  if (userIndex === -1) return res.status(404).json({ error: 'User not found' });
+  
+  const user = usersStore[userIndex];
+  if (user.password !== currentPassword) {
+    return res.status(401).json({ error: 'Incorrect current password' });
+  }
+  
+  usersStore[userIndex].password = newPassword;
+  saveEntity('users', { id: userId }, usersStore[userIndex]);
+  
+  res.json({ message: 'Password updated successfully' });
 });
 
 app.get('/api/system/status', (req, res) => res.json({ 

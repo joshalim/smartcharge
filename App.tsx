@@ -11,7 +11,7 @@ import UserMobileApp from './components/UserMobileApp';
 import Login from './components/Login';
 import { ViewType, Charger, Transaction, OCPPLog, User, Language } from './types';
 import { translations } from './locales/translations';
-import { Activity, AlertCircle, RefreshCw, Database, Upload, Image as ImageIcon, Save, Check, Palette, Trash2, LogOut } from 'lucide-react';
+import { Activity, AlertCircle, RefreshCw, Database, Upload, Image as ImageIcon, Save, Check, Palette, Trash2, LogOut, Lock, Loader2 } from 'lucide-react';
 
 export interface LiveEvent {
   id: string;
@@ -313,6 +313,11 @@ const App: React.FC = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
+    // Password change state
+    const [pwdState, setPwdState] = useState({ current: '', next: '', confirm: '' });
+    const [isPwdSaving, setIsPwdSaving] = useState(false);
+    const [pwdError, setPwdError] = useState<string | null>(null);
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) {
@@ -343,6 +348,41 @@ const App: React.FC = () => {
     const resetBranding = async () => {
       setLogoFile(null);
       await handleUpdateSettings({ customLogo: null });
+    };
+
+    const handlePasswordChange = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setPwdError(null);
+
+      if (pwdState.next !== pwdState.confirm) {
+        setPwdError(t.passwordMatchError);
+        return;
+      }
+
+      setIsPwdSaving(true);
+      try {
+        const res = await fetch('/api/auth/change-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: currentUser!.id,
+            currentPassword: pwdState.current,
+            newPassword: pwdState.next
+          })
+        });
+
+        if (res.ok) {
+          addEvent('success', t.passwordUpdateSuccess);
+          setPwdState({ current: '', next: '', confirm: '' });
+        } else {
+          const data = await res.json();
+          setPwdError(data.error || 'Failed to update password');
+        }
+      } catch (e) {
+        setPwdError('Network error');
+      } finally {
+        setIsPwdSaving(false);
+      }
     };
 
     return (
@@ -416,6 +456,69 @@ const App: React.FC = () => {
                 </button>
               ))}
             </div>
+          </section>
+
+          {/* New Security Section */}
+          <section className="bg-white rounded-[40px] p-10 border border-slate-200 shadow-sm space-y-8 lg:col-span-2">
+            <div className="flex items-center gap-4">
+              <div className="p-4 bg-brand/10 text-brand rounded-2xl">
+                <Lock size={28} />
+              </div>
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight">{t.changePassword}</h3>
+                <p className="text-sm text-slate-400 font-medium">Security & Account access</p>
+              </div>
+            </div>
+
+            <form onSubmit={handlePasswordChange} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+               <div className="space-y-1">
+                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">{t.currentPassword}</label>
+                 <input 
+                  type="password" 
+                  required
+                  className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-brand/10 focus:border-brand outline-none transition-all" 
+                  value={pwdState.current}
+                  onChange={e => setPwdState({...pwdState, current: e.target.value})}
+                 />
+               </div>
+               <div className="space-y-1">
+                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">{t.newPassword}</label>
+                 <input 
+                  type="password" 
+                  required
+                  className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-brand/10 focus:border-brand outline-none transition-all" 
+                  value={pwdState.next}
+                  onChange={e => setPwdState({...pwdState, next: e.target.value})}
+                 />
+               </div>
+               <div className="space-y-1">
+                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">{t.confirmPassword}</label>
+                 <input 
+                  type="password" 
+                  required
+                  className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-brand/10 focus:border-brand outline-none transition-all" 
+                  value={pwdState.confirm}
+                  onChange={e => setPwdState({...pwdState, confirm: e.target.value})}
+                 />
+               </div>
+
+               <div className="md:col-span-3 flex flex-col md:flex-row items-center justify-between gap-4 mt-2">
+                 {pwdError && (
+                   <div className="flex items-center gap-2 text-rose-600 text-xs font-black uppercase tracking-wider">
+                     <AlertCircle size={14} /> {pwdError}
+                   </div>
+                 )}
+                 <div className="flex-1" />
+                 <button 
+                  type="submit" 
+                  disabled={isPwdSaving}
+                  className="px-10 py-4 bg-slate-900 text-white font-black rounded-3xl shadow-xl shadow-slate-900/10 hover:bg-slate-800 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50"
+                 >
+                   {isPwdSaving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
+                   {t.updatePassword}
+                 </button>
+               </div>
+            </form>
           </section>
         </div>
       </div>
