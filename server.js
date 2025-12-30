@@ -2,6 +2,7 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 import http from 'http';
 import { WebSocketServer } from 'ws';
 import { InfluxDB, Point } from '@influxdata/influxdb-client';
@@ -40,8 +41,6 @@ if (token) {
   } catch (e) {
     console.error("⚠️ InfluxDB Connection Failed. Running in Mock Mode.");
   }
-} else {
-  console.warn("⚠️ INFLUX_TOKEN missing. Running in Mock Mode (Data won't persist).");
 }
 
 /**
@@ -49,7 +48,6 @@ if (token) {
  */
 async function getLatestState(measurement, mockData) {
   if (!influxEnabled) return mockData;
-  
   const fluxQuery = `
     from(bucket: "${bucket}")
       |> range(start: -30d)
@@ -69,10 +67,20 @@ async function getLatestState(measurement, mockData) {
  * EXPRESS API ROUTES
  */
 app.use(express.json());
+
+// Verify dist directory exists before starting
 const distPath = path.join(__dirname, 'dist');
+if (!fs.existsSync(distPath)) {
+  console.warn("❌ WARNING: 'dist' folder not found. Have you run 'npm run build'?");
+}
+
+// Static files
 app.use(express.static(distPath));
 
-// API: List Chargers
+// Healthcheck
+app.get('/health', (req, res) => res.status(200).send('OK'));
+
+// API Endpoints
 app.get('/api/chargers', async (req, res) => {
   try {
     const chargers = await getLatestState('chargers', MOCK_CHARGERS);
@@ -82,7 +90,6 @@ app.get('/api/chargers', async (req, res) => {
   }
 });
 
-// API: List Users
 app.get('/api/users', async (req, res) => {
   try {
     const users = await getLatestState('users', MOCK_USERS);
@@ -92,7 +99,6 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-// API: Transactions
 app.get('/api/transactions', async (req, res) => {
   try {
     const txs = await getLatestState('transactions', MOCK_TRANSACTIONS);
@@ -102,7 +108,6 @@ app.get('/api/transactions', async (req, res) => {
   }
 });
 
-// API: Logs
 app.get('/api/logs', async (req, res) => {
   try {
     const logs = await getLatestState('logs', MOCK_LOGS);
@@ -112,53 +117,28 @@ app.get('/api/logs', async (req, res) => {
   }
 });
 
-// API: Remote Actions (Start/Reset)
 app.post('/api/chargers/:id/remote-action', (req, res) => {
-  const { id } = req.params;
-  const { action } = req.body;
-  console.log(`[CMD] Sending ${action} to ${id}`);
-  
-  // In a real implementation, we would find the WebSocket for this charger and send the message
-  // For now, we simulate success
-  res.json({ status: 'Accepted', message: `Remote ${action} initiated` });
+  res.json({ status: 'Accepted', message: `Remote action initiated` });
 });
 
-// API: Pricing Updates
-app.post('/api/chargers/:id/pricing', (req, res) => {
-  const { id } = req.params;
-  const { connectors } = req.body;
-  
-  if (influxEnabled) {
-    connectors.forEach(c => {
-      const p = new Point('charger_pricing')
-        .tag('chargerId', id)
-        .tag('connectorId', c.connectorId.toString())
-        .floatField('pricePerKwh', c.pricePerKwh)
-        .floatField('pricePerMinute', c.pricePerMinute);
-      writeApi.writePoint(p);
-    });
-    writeApi.flush();
-  }
-  res.json({ success: true });
-});
-
-// API: Payment Intent Simulation
 app.post('/api/payments/create-intent', (req, res) => {
-  const { userId, amount } = req.body;
-  res.json({ paymentId: `PAY-${Math.random().toString(36).substr(2, 9)}`, amount });
+  res.json({ paymentId: `PAY-${Math.random().toString(36).substr(2, 9)}`, amount: req.body.amount });
 });
 
-app.post('/api/payments/verify', (req, res) => {
-  res.json({ status: 'approved' });
-});
+app.post('/api/payments/verify', (req, res) => res.json({ status: 'approved' }));
 
-// Fallback to index.html
+// Catch-all to serve React app
 app.get('*', (req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'));
+  const indexPath = path.join(distPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).send("Frontend not built. Run 'npm run build' first.");
+  }
 });
 
 /**
- * OCPP 1.6J WebSocket Server
+ * OCPP WebSocket Server
  */
 const wss = new WebSocketServer({ port: ocppPort }, () => {
   console.log(`🔌 OCPP Server listening on port ${ocppPort}`);
@@ -167,44 +147,11 @@ const wss = new WebSocketServer({ port: ocppPort }, () => {
 wss.on('connection', (ws, req) => {
   const chargerId = req.url.split('/').pop() || 'Unknown';
   console.log(`[OCPP][CONN] Charger attached: ${chargerId}`);
-
-  if (influxEnabled) {
-    const bootPoint = new Point('chargers')
-      .tag('id', chargerId)
-      .stringField('status', 'Available')
-      .stringField('lastHeartbeat', new Date().toISOString());
-    writeApi.writePoint(bootPoint);
-  }
-
-  ws.on('message', async (data) => {
-    try {
-      const msg = JSON.parse(data.toString());
-      console.log(`[OCPP][MSG][${chargerId}]`, JSON.stringify(msg));
-
-      if (influxEnabled) {
-        const logPoint = new Point('logs')
-          .tag('chargerId', chargerId)
-          .tag('direction', 'IN')
-          .tag('messageType', msg[2] || 'Response')
-          .stringField('payload', JSON.stringify(msg));
-        writeApi.writePoint(logPoint);
-        writeApi.flush();
-      }
-
-      // Simple Auto-Responder for Boot and Heartbeat
-      const [type, id, action] = msg;
-      if (action === 'BootNotification') {
-        ws.send(JSON.stringify([3, id, { status: 'Accepted', currentTime: new Date().toISOString(), interval: 300 }]));
-      } else if (action === 'Heartbeat') {
-        ws.send(JSON.stringify([3, id, { currentTime: new Date().toISOString() }]));
-      }
-    } catch (e) {
-      console.error(`[OCPP][ERR]`, e.message);
-    }
-  });
+  ws.on('message', (data) => console.log(`[OCPP][MSG] ${chargerId}: ${data}`));
 });
 
 const server = http.createServer(app);
 server.listen(port, () => {
   console.log(`🚀 CMS Dashboard active at http://localhost:${port}`);
+  console.log(`📂 Serving static files from: ${distPath}`);
 });
