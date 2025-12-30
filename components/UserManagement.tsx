@@ -2,18 +2,19 @@
 import React from 'react';
 import { User, Language } from '../types';
 import { translations } from '../locales/translations';
-import { CreditCard, Plus, ShieldAlert, CheckCircle2, Search, Mail, Wallet, X, Loader2, Smartphone, Zap, CarFront, Pencil, Phone, AlertCircle } from 'lucide-react';
+import { CreditCard, Plus, ShieldAlert, CheckCircle2, Search, Mail, Wallet, X, Loader2, Smartphone, Zap, CarFront, Pencil, Phone, AlertCircle, FileUp } from 'lucide-react';
 
 interface UserManagementProps {
   users: User[];
   onAddUser: (user: Partial<User>) => void;
+  onBulkAddUsers: (users: Partial<User>[]) => void;
   onEditUser: (userId: string, user: Partial<User>) => void;
   onUpdateStatus: (id: string, updates: Partial<User>) => void;
   onTopUp: (userId: string, amount: number) => void;
   language: Language;
 }
 
-const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onEditUser, onUpdateStatus, onTopUp, language }) => {
+const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onBulkAddUsers, onEditUser, onUpdateStatus, onTopUp, language }) => {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
@@ -22,6 +23,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onEdi
   const [topUpAmount, setTopUpAmount] = React.useState<string>('50000');
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [paymentStatus, setPaymentStatus] = React.useState<'idle' | 'initiating' | 'success' | 'error'>('idle');
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const [userFormData, setUserFormData] = React.useState({
     name: '', email: '', phoneNumber: '', placa: '', cedula: '', rfidTag: '', rfidExpiration: ''
@@ -53,6 +56,54 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onEdi
     setIsProcessing(false);
   };
 
+  const handleCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (!text) return;
+
+      const lines = text.split(/\r?\n/);
+      const importedUsers: Partial<User>[] = [];
+
+      // Assume simple CSV format: name, email, phone, placa, cedula, rfidTag
+      // Skip header if it exists
+      const startIndex = lines[0].toLowerCase().includes('name') ? 1 : 0;
+
+      for (let i = startIndex; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const parts = line.split(',');
+        if (parts.length >= 6) {
+          importedUsers.push({
+            id: `USR-IMP-${Math.floor(Math.random() * 100000)}`,
+            name: parts[0].trim(),
+            email: parts[1].trim(),
+            phoneNumber: parts[2].trim(),
+            placa: parts[3].trim(),
+            cedula: parts[4].trim(),
+            rfidTag: parts[5].trim(),
+            status: 'Active',
+            joinedDate: new Date().toISOString(),
+            balance: 0
+          });
+        }
+      }
+
+      if (importedUsers.length > 0) {
+        onBulkAddUsers(importedUsers);
+      } else {
+        alert("No valid users found in CSV. Format: name, email, phone, placa, cedula, rfidTag");
+      }
+    };
+    reader.readAsText(file);
+    // Clear the input value to allow re-importing same file if needed
+    e.target.value = '';
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between gap-4">
@@ -60,7 +111,23 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onEdi
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input type="text" placeholder={t.searchPlaceholder} className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
-        <button onClick={() => { setUserFormData({ name: '', email: '', phoneNumber: '', placa: '', cedula: '', rfidTag: '', rfidExpiration: '' }); setIsModalOpen(true); }} className="flex items-center justify-center gap-2 px-6 py-2 bg-blue-600 text-white font-bold rounded-lg"><Plus size={18} /> {t.addUser}</button>
+        <div className="flex gap-2">
+          <input 
+            type="file" 
+            accept=".csv" 
+            className="hidden" 
+            ref={fileInputRef} 
+            onChange={handleCsvImport}
+          />
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center justify-center gap-2 px-6 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+          >
+            <FileUp size={18} className="text-blue-500" />
+            CSV Import
+          </button>
+          <button onClick={() => { setUserFormData({ name: '', email: '', phoneNumber: '', placa: '', cedula: '', rfidTag: '', rfidExpiration: '' }); setIsModalOpen(true); }} className="flex items-center justify-center gap-2 px-6 py-2 bg-blue-600 text-white font-bold rounded-lg"><Plus size={18} /> {t.addUser}</button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden overflow-x-auto">

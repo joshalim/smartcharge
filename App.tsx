@@ -99,6 +99,16 @@ const App: React.FC = () => {
     } catch (e) { addEvent('error', 'Failed to update charger.'); }
   };
 
+  const handleDeleteCharger = async (id: string) => {
+    try {
+      const res = await fetch(`/api/chargers/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        addEvent('success', `Station ${id} removed from dashboard.`);
+        fetchData();
+      }
+    } catch (e) { addEvent('error', 'Failed to delete charger.'); }
+  };
+
   const handleAddUser = async (user: Partial<User>) => {
     try {
       const res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(user) });
@@ -107,6 +117,16 @@ const App: React.FC = () => {
         fetchData();
       }
     } catch (e) { addEvent('error', 'Failed to add user.'); }
+  };
+
+  const handleBulkAddUsers = async (usersToImport: Partial<User>[]) => {
+    try {
+      const res = await fetch('/api/users/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(usersToImport) });
+      if (res.ok) {
+        addEvent('success', `${usersToImport.length} users imported successfully.`);
+        fetchData();
+      }
+    } catch (e) { addEvent('error', 'Failed to import users.'); }
   };
 
   const handleEditUser = async (id: string, updates: Partial<User>) => {
@@ -155,8 +175,8 @@ const App: React.FC = () => {
     if (isLoading && chargers.length === 0) return <div className="flex items-center justify-center h-[60vh]"><Activity size={48} className="text-blue-500 animate-pulse" /></div>;
     switch (activeView) {
       case 'dashboard': return <Dashboard chargers={chargers} transactions={transactions} liveEvents={liveEvents} language={language} grafanaConfig={grafanaConfig} isLive={dbStatus?.influxConnected} />;
-      case 'chargers': return <ChargerList chargers={chargers} onRemoteAction={handleRemoteAction} onAddCharger={handleAddCharger} onEditCharger={handleEditCharger} language={language} />;
-      case 'users': return <UserManagement users={users} onAddUser={handleAddUser} onEditUser={handleEditUser} onUpdateStatus={handleEditUser} onTopUp={(id, amt) => { const u = users.find(u => u.id === id); if(u) handleEditUser(id, { balance: u.balance + amt }); }} language={language} />;
+      case 'chargers': return <ChargerList chargers={chargers} onRemoteAction={handleRemoteAction} onAddCharger={handleAddCharger} onEditCharger={handleEditCharger} onDeleteCharger={handleDeleteCharger} language={language} />;
+      case 'users': return <UserManagement users={users} onAddUser={handleAddUser} onBulkAddUsers={handleBulkAddUsers} onEditUser={handleEditUser} onUpdateStatus={handleEditUser} onTopUp={(id, amt) => { const u = users.find(u => u.id === id); if(u) handleEditUser(id, { balance: u.balance + amt }); }} language={language} />;
       case 'transactions': return <Transactions transactions={transactions} language={language} />;
       case 'logs': return <OCPPLogs logs={logs} />;
       case 'ai-insights': return <AIAnalyst chargers={chargers} logs={logs} language={language} />;

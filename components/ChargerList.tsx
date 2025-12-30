@@ -9,10 +9,11 @@ interface ChargerListProps {
   onRemoteAction: (id: string, action: string) => void;
   onAddCharger: (charger: Partial<Charger>) => void;
   onEditCharger: (id: string, updates: Partial<Charger>) => void;
+  onDeleteCharger: (id: string) => void;
   language: Language;
 }
 
-const ChargerList: React.FC<ChargerListProps> = ({ chargers, onRemoteAction, onAddCharger, onEditCharger, language }) => {
+const ChargerList: React.FC<ChargerListProps> = ({ chargers, onRemoteAction, onAddCharger, onEditCharger, onDeleteCharger, language }) => {
   const [isAddModalOpen, setIsAddModalOpen] = React.useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
   const [isPricingModalOpen, setIsPricingModalOpen] = React.useState(false);
@@ -65,6 +66,12 @@ const ChargerList: React.FC<ChargerListProps> = ({ chargers, onRemoteAction, onA
     setIsPricingModalOpen(false);
   };
 
+  const handleDelete = (id: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete charger "${name}"? This will remove it from the management dashboard.`)) {
+      onDeleteCharger(id);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
@@ -83,6 +90,7 @@ const ChargerList: React.FC<ChargerListProps> = ({ chargers, onRemoteAction, onA
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button onClick={() => handleOpenEdit(charger)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Pencil size={18} /></button>
                 <button onClick={() => handleOpenPricing(charger)} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg"><DollarSign size={18} /></button>
+                <button onClick={() => handleDelete(charger.id, charger.name)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={18} /></button>
               </div>
             </div>
             

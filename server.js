@@ -85,7 +85,6 @@ async function getLatestState(measurement, localStore) {
     
     return rows.map(row => {
       const parsed = { ...row };
-      // Parse specific object fields if they were stringified
       ['location', 'connectors', 'payload'].forEach(field => {
         if (parsed[field] && typeof parsed[field] === 'string') {
           try { parsed[field] = JSON.parse(parsed[field]); } catch(e) {}
@@ -114,12 +113,10 @@ app.get('/api/chargers', async (req, res) => res.json(await getLatestState('char
 
 app.post('/api/chargers', async (req, res) => {
   const charger = req.body;
-  // Update local memory
   const index = chargersStore.findIndex(c => c.id === charger.id);
   if (index !== -1) chargersStore[index] = { ...chargersStore[index], ...charger };
   else chargersStore.push(charger);
   
-  // Update InfluxDB
   await saveEntity('chargers', { id: charger.id }, charger);
   res.status(201).json(charger);
 });
@@ -127,14 +124,19 @@ app.post('/api/chargers', async (req, res) => {
 app.put('/api/chargers/:id', async (req, res) => {
   const charger = req.body;
   const id = req.params.id;
-  
-  // Update local memory
   const index = chargersStore.findIndex(c => c.id === id);
   if (index !== -1) chargersStore[index] = { ...chargersStore[index], ...charger };
-  
-  // Update InfluxDB
   await saveEntity('chargers', { id }, charger);
   res.json(charger);
+});
+
+app.delete('/api/chargers/:id', (req, res) => {
+  const id = req.params.id;
+  chargersStore = chargersStore.filter(c => c.id !== id);
+  // Note: deleting historical points from InfluxDB is a background operation 
+  // and usually not done via simple API calls in TSDBs. 
+  // The memory store reflects the deletion for the session.
+  res.status(204).send();
 });
 
 // User Endpoints
@@ -142,25 +144,32 @@ app.get('/api/users', async (req, res) => res.json(await getLatestState('users',
 
 app.post('/api/users', async (req, res) => {
   const user = req.body;
-  // Update local memory
   const index = usersStore.findIndex(u => u.id === user.id);
   if (index !== -1) usersStore[index] = { ...usersStore[index], ...user };
   else usersStore.push(user);
   
-  // Update InfluxDB
   await saveEntity('users', { id: user.id }, user);
   res.status(201).json(user);
+});
+
+app.post('/api/users/bulk', async (req, res) => {
+  const users = req.body;
+  if (!Array.isArray(users)) return res.status(400).json({ error: 'Expected array of users' });
+  
+  for (const user of users) {
+    const index = usersStore.findIndex(u => u.id === user.id);
+    if (index !== -1) usersStore[index] = { ...usersStore[index], ...user };
+    else usersStore.push(user);
+    await saveEntity('users', { id: user.id }, user);
+  }
+  res.status(201).json({ count: users.length });
 });
 
 app.put('/api/users/:id', async (req, res) => {
   const user = req.body;
   const id = req.params.id;
-  
-  // Update local memory
   const index = usersStore.findIndex(u => u.id === id);
   if (index !== -1) usersStore[index] = { ...usersStore[index], ...user };
-  
-  // Update InfluxDB
   await saveEntity('users', { id }, user);
   res.json(user);
 });
@@ -175,7 +184,6 @@ app.get('*', (req, res) => {
   if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath);
   } else {
-    // Fallback if dist doesn't exist yet
     res.sendFile(path.resolve(__dirname, 'index.html'));
   }
 });
@@ -199,7 +207,7 @@ wss.on('connection', (ws, req) => {
           payload: payload
         };
         logsStore.unshift(logEntry);
-        logsStore = logsStore.slice(0, 100); // Keep last 100
+        logsStore = logsStore.slice(0, 100);
         
         if (influxEnabled) {
           await saveEntity('logs', { chargerId, messageType: action }, { payload });
