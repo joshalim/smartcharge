@@ -8,7 +8,7 @@ import { WebSocketServer } from 'ws';
 import { InfluxDB, Point } from '@influxdata/influxdb-client';
 import dotenv from 'dotenv';
 
-// Import mock data for failover if DB is empty
+// Import mock data (Ensure this file is .js for Node compatibility)
 import { MOCK_CHARGERS, MOCK_USERS, MOCK_TRANSACTIONS, MOCK_LOGS } from './services/mockData.js';
 
 dotenv.config();
@@ -17,8 +17,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const port = process.env.PORT || 3080;
-const ocppPort = process.env.OCPP_PORT || 9000;
+const port = parseInt(process.env.PORT || '3080', 10);
+const ocppPort = parseInt(process.env.OCPP_PORT || '9000', 10);
 
 /**
  * INFLUXDB v2 ENGINE
@@ -68,17 +68,14 @@ async function getLatestState(measurement, mockData) {
  */
 app.use(express.json());
 
-// Verify dist directory exists before starting
-const distPath = path.join(__dirname, 'dist');
+// Verify dist directory
+const distPath = path.resolve(__dirname, 'dist');
 if (!fs.existsSync(distPath)) {
-  console.warn("❌ WARNING: 'dist' folder not found. Have you run 'npm run build'?");
+  console.warn(`❌ WARNING: 'dist' folder not found at ${distPath}. Run 'npm run build'`);
 }
 
 // Static files
 app.use(express.static(distPath));
-
-// Healthcheck
-app.get('/health', (req, res) => res.status(200).send('OK'));
 
 // API Endpoints
 app.get('/api/chargers', async (req, res) => {
@@ -121,27 +118,21 @@ app.post('/api/chargers/:id/remote-action', (req, res) => {
   res.json({ status: 'Accepted', message: `Remote action initiated` });
 });
 
-app.post('/api/payments/create-intent', (req, res) => {
-  res.json({ paymentId: `PAY-${Math.random().toString(36).substr(2, 9)}`, amount: req.body.amount });
-});
-
-app.post('/api/payments/verify', (req, res) => res.json({ status: 'approved' }));
-
-// Catch-all to serve React app
+// Catch-all
 app.get('*', (req, res) => {
   const indexPath = path.join(distPath, 'index.html');
   if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath);
   } else {
-    res.status(404).send("Frontend not built. Run 'npm run build' first.");
+    res.status(404).send("Frontend build not found. Please run 'npm run build'.");
   }
 });
 
 /**
  * OCPP WebSocket Server
  */
-const wss = new WebSocketServer({ port: ocppPort }, () => {
-  console.log(`🔌 OCPP Server listening on port ${ocppPort}`);
+const wss = new WebSocketServer({ port: ocppPort, host: '0.0.0.0' }, () => {
+  console.log(`🔌 OCPP Server listening on 0.0.0.0:${ocppPort}`);
 });
 
 wss.on('connection', (ws, req) => {
@@ -151,7 +142,17 @@ wss.on('connection', (ws, req) => {
 });
 
 const server = http.createServer(app);
-server.listen(port, () => {
-  console.log(`🚀 CMS Dashboard active at http://localhost:${port}`);
+
+server.on('error', (e) => {
+  if (e.code === 'EADDRINUSE') {
+    console.error(`❌ ERROR: Port ${port} is already in use. Check for other running instances.`);
+    process.exit(1);
+  } else {
+    console.error("❌ Server Error:", e);
+  }
+});
+
+server.listen(port, '0.0.0.0', () => {
+  console.log(`🚀 CMS Dashboard active at http://0.0.0.0:${port}`);
   console.log(`📂 Serving static files from: ${distPath}`);
 });
