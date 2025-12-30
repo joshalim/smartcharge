@@ -89,7 +89,12 @@ export const translations = {
     energyConsumed: "Energy (kWh)",
     cost: "Cost",
     user: "User",
-    txId: "TX ID"
+    txId: "TX ID",
+    viewMap: "View Map",
+    connectorType: "Connector Type",
+    addConnector: "Add Connector",
+    expiryWarning: "Nearing Expiry",
+    expiryCritical: "Expired Card"
   },
   es: {
     dashboard: "Centro de Comando",
@@ -180,6 +185,11 @@ export const translations = {
     energyConsumed: "Energía (kWh)",
     cost: "Costo",
     user: "Usuario",
-    txId: "ID TX"
+    txId: "ID TX",
+    viewMap: "Ver Mapa",
+    connectorType: "Tipo de Conector",
+    addConnector: "Añadir Conector",
+    expiryWarning: "Vence pronto",
+    expiryCritical: "Tarjeta Expirada"
   }
 };

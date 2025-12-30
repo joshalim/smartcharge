@@ -8,6 +8,14 @@ export enum ChargerStatus {
   PREPARING = 'Preparing'
 }
 
+export enum ConnectorType {
+  CCS2 = 'CCS2',
+  TYPE2 = 'Type 2',
+  CHADEMO = 'CHAdeMO',
+  GB_T = 'GB/T',
+  J1772 = 'J1772'
+}
+
 export type Language = 'en' | 'es';
 
 export interface GrafanaConfig {
@@ -19,6 +27,7 @@ export interface GrafanaConfig {
 
 export interface ConnectorPricing {
   connectorId: number;
+  connectorType: ConnectorType;
   pricePerKwh: number;
   pricePerMinute: number;
   status: ChargerStatus;

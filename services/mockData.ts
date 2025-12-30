@@ -1,5 +1,6 @@
 
-import { Charger, ChargerStatus, Transaction, OCPPLog, User } from '../types';
+// Fix: Added ConnectorType to imports and assigned it to each connector in MOCK_CHARGERS to satisfy the ConnectorPricing interface requirements.
+import { Charger, ChargerStatus, Transaction, OCPPLog, User, ConnectorType } from '../types';
 
 export const MOCK_CHARGERS: Charger[] = [
   {
@@ -13,7 +14,7 @@ export const MOCK_CHARGERS: Charger[] = [
     currentPower: 22.5,
     totalEnergy: 1250.4,
     connectors: [
-      { connectorId: 1, pricePerKwh: 1200, pricePerMinute: 50, status: ChargerStatus.CHARGING }
+      { connectorId: 1, connectorType: ConnectorType.CCS2, pricePerKwh: 1200, pricePerMinute: 50, status: ChargerStatus.CHARGING }
     ]
   },
   {
@@ -27,7 +28,7 @@ export const MOCK_CHARGERS: Charger[] = [
     currentPower: 0,
     totalEnergy: 840.2,
     connectors: [
-      { connectorId: 1, pricePerKwh: 1100, pricePerMinute: 45, status: ChargerStatus.AVAILABLE }
+      { connectorId: 1, connectorType: ConnectorType.TYPE2, pricePerKwh: 1100, pricePerMinute: 45, status: ChargerStatus.AVAILABLE }
     ]
   },
   {
@@ -41,7 +42,7 @@ export const MOCK_CHARGERS: Charger[] = [
     currentPower: 0,
     totalEnergy: 4500.8,
     connectors: [
-      { connectorId: 1, pricePerKwh: 1500, pricePerMinute: 100, status: ChargerStatus.FAULTED }
+      { connectorId: 1, connectorType: ConnectorType.CCS2, pricePerKwh: 1500, pricePerMinute: 100, status: ChargerStatus.FAULTED }
     ]
   },
   {
@@ -55,7 +56,7 @@ export const MOCK_CHARGERS: Charger[] = [
     currentPower: 11.2,
     totalEnergy: 112.5,
     connectors: [
-      { connectorId: 1, pricePerKwh: 900, pricePerMinute: 30, status: ChargerStatus.CHARGING }
+      { connectorId: 1, connectorType: ConnectorType.TYPE2, pricePerKwh: 900, pricePerMinute: 30, status: ChargerStatus.CHARGING }
     ]
   },
 ];
